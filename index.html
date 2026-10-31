@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.10.0 (31/10/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete
+  Versione 0.11.0 (31/10/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -151,6 +151,18 @@ header{display:flex;align-items:center;gap:12px;height:60px;padding:0 18px;backg
 .an.alta{border-color:#EF4444}.an.media{border-color:#F59E0B}.an.bassa{border-color:#38BDF8}
 .an p{margin:4px 0;color:var(--muted)}
 
+a.btn{text-decoration:none;display:inline-block;text-align:center}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;margin:10px 0}
+.sw h3{margin:22px 0 8px;color:var(--p2)}
+.sw .card{margin-bottom:12px}
+.sw input,.sw select,.sw textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--text);font:inherit}
+.sw textarea{min-height:70px;resize:vertical}
+.pd summary{cursor:pointer;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.pd h4{margin:16px 0 4px}
+.dx{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.chip{padding:2px 10px;border-radius:99px;font-size:12px;border:1px solid var(--line)}
+.chip.s-Aperta{color:#F59E0B;border-color:#F59E0B}.chip.s-Intrattativa{color:#38BDF8;border-color:#38BDF8}.chip.s-Conciliazione{color:#A78BFA;border-color:#A78BFA}.chip.s-Ingiudizio{color:#F87171;border-color:#F87171}.chip.s-Chiusa{color:#22C55E;border-color:#22C55E}
+
 @media(min-width:769px){
  body.collapsed #side{width:var(--sc)}
  body.collapsed .lbl,body.collapsed .sh .lg{display:none}
@@ -228,7 +240,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.10.0', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.11.0', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -364,10 +376,10 @@ async function push() {
   if (!TOK || !dirty.size) return;
   try {
     syncUI('wa', 'Sincronizzazione in corso');
-    const mk = [...dirty].filter(k => k === 'mnx_ore' || k === 'mnx_ced');   // prima di scrivere, unisco con quanto scritto da altri dispositivi
+    const mk = [...dirty].filter(k => k === 'mnx_ore' || k === 'mnx_ced' || k === 'mnx_sind');   // prima di scrivere, unisco con quanto scritto da altri dispositivi
     if (mk.length) {
       const rem = await (await api('mnx_dati?select=chiave,valore&chiave=in.(' + mk.join(',') + ')')).json();
-      rem.forEach(r => { const lraw = localStorage.getItem(r.chiave); let loc = {}; try { loc = JSON.parse(lraw) || {}; } catch (e) {} const t = JSON.stringify({ ...r.valore, ...loc }); if (t !== lraw) localStorage.setItem(r.chiave, t); });
+      rem.forEach(r => { const lraw = localStorage.getItem(r.chiave); let loc = {}; try { loc = JSON.parse(lraw) || {}; } catch (e) {} const t = JSON.stringify(r.chiave === 'mnx_sind' ? mergeSind(loc, r.valore) : { ...r.valore, ...loc }); if (t !== lraw) localStorage.setItem(r.chiave, t); });
     }
     const rows = [...dirty].filter(k => localStorage.getItem(k) !== null).map(k => {
       const v = localStorage.getItem(k); let val; try { val = JSON.parse(v); } catch (e) { val = v; }
@@ -386,7 +398,7 @@ async function pull() {
       const k = r.chiave, lraw = localStorage.getItem(k), lmod = localStorage.getItem('mnx_mod_' + k);
       let loc = null; try { loc = lraw === null ? null : JSON.parse(lraw); } catch (e) { loc = lraw; }
       const remNewer = !lmod || new Date(r.aggiornato) > new Date(lmod), merge = k === 'mnx_ore' || k === 'mnx_ced';
-      const out = loc === null ? r.valore : merge ? (remNewer ? { ...loc, ...r.valore } : { ...r.valore, ...loc }) : (remNewer ? r.valore : loc);
+      const out = loc === null ? r.valore : k === 'mnx_sind' ? mergeSind(loc, r.valore) : merge ? (remNewer ? { ...loc, ...r.valore } : { ...r.valore, ...loc }) : (remNewer ? r.valore : loc);
       const s = typeof out === 'string' ? out : JSON.stringify(out);
       if (s !== lraw) localStorage.setItem(k, s);
       if (JSON.stringify(out) !== JSON.stringify(r.valore)) { dirty.add(k); localStorage.setItem('mnx_mod_' + k, now()); }
@@ -438,11 +450,13 @@ function go(id) {
   const x = ALL.find(a => a.id === id); if (!x) return;
   $('ttl').textContent = x.t;
   document.querySelectorAll('.ni').forEach(b => b.classList.toggle('act', b.dataset.id === id));
-  $('view').innerHTML = id === 'dash' ? dash() : id === 'imp' ? settings() : id === 'ore' ? oreView()
+  $('view').innerHTML = id === 'dash' ? dash() : id === 'imp' ? settings() : id === 'ore' ? oreView() : id === 'sind' ? ''
     : `<div class="card big"><span class="tag">In arrivo</span><h1>${x.t}</h1><p>${x.d || ''}</p></div>`;
   if (id === 'dash') initDash();
   if (id === 'imp') initSettings();
   if (id === 'ore') initOre();
+  if (id === 'sind') initSind();
+  if (id !== 'sind') unlocked = 0;
   if (!isDesk()) setCol(true);
 }
 
@@ -457,10 +471,12 @@ const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0
 const dayDiff = s => Math.round((new Date(s + 'T00:00') - new Date(ymd(new Date()) + 'T00:00')) / 864e5);
 const rel = n => n < 0 ? 'scaduto' : n === 0 ? 'oggi' : n === 1 ? 'domani' : `tra ${n} giorni`;
 const cap = s => s[0].toUpperCase() + s.slice(1);
-const evTitle = e => e.s === 'salute' ? 'Appuntamento' : e.t;   // privacy: niente dettagli medici in dashboard
+const evTitle = e => e.s === 'salute' ? 'Appuntamento' : e.p ? 'Scadenza riservata' : e.t;   // privacy: niente dettagli medici in dashboard
 let EV = [], selD = '', vy = 0, vm = 0, clkT;
 
-function loadEvents() { return []; }   // TODO: leggere la tabella "eventi" di Supabase
+function loadEvents() {   // scadenze delle pratiche sindacali (mostrate in forma riservata)
+  loadSD(); return SD.pr.filter(p => !p.del && p.scad && p.stato !== 'Chiusa').map(p => ({ t: p.titolo || 'Pratica', d: p.scad, s: 'work', k: 'scadenza', p: 1 }));
+}
 const dash = () => `<div class="ck" id="ck"></div><div class="cd" id="cd"></div>
   <div class="tk-wrap" role="region" aria-label="Prossime scadenze per sezione"><div class="tk" id="tk"></div></div>
   <div class="cols"><div class="card" id="cal"></div><div class="card" id="ag"></div></div>
@@ -532,6 +548,10 @@ const settings = () => `<div class="card big"><h1>Impostazioni</h1>
     <div class="ob"><button class="btn" id="inst" hidden>Installa Mnemonyx</button></div>
     <small>iPhone: apri il sito in Safari, tocca Condividi e poi «Aggiungi alla schermata Home». Android: menu del browser, «Installa app».</small>
   </fieldset>
+  <fieldset class="st"><legend>PIN delle sezioni riservate</legend>
+    <div class="ob"><button class="btn ghost" id="pinr">Reimposta PIN</button></div>
+    <small>Dopo il reset, alla prossima apertura della sezione Sindacato ti verrà chiesto di sceglierne uno nuovo.</small>
+  </fieldset>
   <fieldset class="st"><legend>Dati e backup</legend>
     <small id="bkd">${bkInfo()}</small>
     <div class="ob"><button class="btn" id="bkx">Esporta backup</button><button class="btn ghost" id="bki">Importa backup</button><input type="file" id="bkf" accept=".json,application/json" hidden></div>
@@ -548,6 +568,7 @@ function initSettings() {
   $('inz').textContent = sa ? 'Stai già usando Mnemonyx come app.' : '';
   $('inst').hidden = !ip || sa;
   $('inst').onclick = async () => { ip.prompt(); try { await ip.userChoice; } catch (e) {} ip = null; $('inst').hidden = true; };
+  $('pinr').onclick = () => { if (confirm('Reimpostare il PIN?')) { localStorage.setItem(PINK, '{}'); touch(PINK); say('PIN reimpostato.'); } };
   $('bkx').onclick = exportBk; $('bki').onclick = () => $('bkf').click();
   $('bkf').onchange = () => { if ($('bkf').files[0]) importBk($('bkf').files[0]); $('bkf').value = ''; };
   document.querySelectorAll('input[name=tk]').forEach(r => { r.checked = r.value === cur; r.onchange = () => setTk(r.value); });
@@ -734,7 +755,7 @@ function showReport(y, m) {
 }
 
 /* ---------- Backup e ripristino dati ---------- */
-const BK = ['mnx_ore', 'mnx_ore_p', 'mnx_ced', 'mnx_tk'];
+const BK = ['mnx_ore', 'mnx_ore_p', 'mnx_ced', 'mnx_tk', 'mnx_sind', 'mnx_pin'];
 function bkData() {
   const dati = {}; BK.forEach(k => { const v = localStorage.getItem(k); if (v !== null) dati[k] = v; });
   return { app: 'Mnemonyx', versione: VERSION, data: new Date().toISOString(), dati };
@@ -762,6 +783,111 @@ function importBk(file) {
     } catch (e) { say('File di backup non valido.'); }
   };
   r.readAsText(file);
+}
+
+/* ---------- Sezione Sindacato (protetta da PIN) ---------- */
+const SIND = 'mnx_sind', PINK = 'mnx_pin';
+const TIPI = ['Differenze retributive', 'Straordinari non pagati', 'Inquadramento o mansioni', 'Malattia o infortunio', 'Provvedimento disciplinare', 'Licenziamento o dimissioni', 'Altro'];
+const STATI = ['Aperta', 'In trattativa', 'Conciliazione', 'In giudizio', 'Chiusa'];
+const CONTATTI = ['Incontro', 'Telefonata', 'Email', 'Lettera', 'Altro'];
+let SD = { sig: {}, ref: [], pr: [] }, unlocked = 0, openP = '';
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nowI = () => new Date().toISOString();
+const loadSD = () => { try { SD = { sig: {}, ref: [], pr: [], ...JSON.parse(localStorage.getItem(SIND) || '{}') }; } catch (e) {} };
+const saveSD = () => { try { localStorage.setItem(SIND, JSON.stringify(SD)); touch(SIND); } catch (e) {} };
+const byId = (x = [], y = []) => { const m = new Map(); [...x, ...y].forEach(i => { const o = m.get(i.id); if (!o || (i.u || '') > (o.u || '')) m.set(i.id, i); }); return [...m.values()]; };
+function mergeSind(a, b) {
+  a = a || {}; b = b || {};
+  const pr = byId(a.pr, b.pr).map(p => ({ ...p, dia: byId((((a.pr || []).find(x => x.id === p.id)) || {}).dia, (((b.pr || []).find(x => x.id === p.id)) || {}).dia) }));
+  return { sig: ((a.sig && a.sig.u) || '') >= ((b.sig && b.sig.u) || '') ? (a.sig || {}) : b.sig, ref: byId(a.ref, b.ref), pr };
+}
+const sha = async t => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map(b => b.toString(16).padStart(2, '0')).join('');
+function sindLock() {
+  let p = {}; try { p = JSON.parse(localStorage.getItem(PINK) || '{}'); } catch (e) {}
+  const has = !!p.h;
+  $('view').onclick = null; $('view').onchange = null;
+  $('view').innerHTML = `<div class="card big"><h1>Sindacato</h1><p>${has ? 'Sezione riservata: inserisci il PIN.' : 'Sezione riservata: scegli un PIN di almeno 4 cifre.'}</p>
+    <label>PIN<input id="pin" type="password" inputmode="numeric" autocomplete="off"></label>
+    ${has ? '' : '<label>Ripeti il PIN<input id="pin2" type="password" inputmode="numeric" autocomplete="off"></label>'}
+    <div class="ob"><button class="btn" id="pgo">${has ? 'Sblocca' : 'Imposta PIN'}</button></div><p class="warn" id="perr"></p>
+    <small class="hint">Il PIN protegge la sezione sullo schermo. Se lo dimentichi puoi reimpostarlo da Impostazioni.</small></div>`;
+  const ok = async () => {
+    const v = $('pin').value, er = t => { $('perr').textContent = t; }; er('');
+    if (!(window.crypto && crypto.subtle)) return er('Questo browser non permette di usare il PIN (serve una connessione sicura HTTPS).');
+    if (has) { if (await sha(p.s + v) !== p.h) return er('PIN errato.'); }
+    else {
+      if (!/^\d{4,}$/.test(v)) return er('Il PIN deve avere almeno 4 cifre.');
+      if (v !== $('pin2').value) return er('I due PIN non coincidono.');
+      const s = uid(); localStorage.setItem(PINK, JSON.stringify({ s, h: await sha(s + v) })); touch(PINK);
+    }
+    unlocked = Date.now(); initSind();
+  };
+  $('pgo').onclick = ok; $('pin').onkeydown = e => { if (e.key === 'Enter') ok(); }; $('pin').focus();
+}
+function initSind() { loadSD(); if (!unlocked || Date.now() - unlocked > 300000) return sindLock(); renderSind(); }
+const sm = p => `<b>${esc(p.titolo || 'Nuova pratica')}</b><span class="chip s-${(p.stato || '').replace(/\s/g, '')}">${esc(p.stato || 'Senza stato')}</span>${p.scad ? `<small>scadenza ${esc(p.scad)}</small>` : ''}`;
+function setv(el) {
+  const d = el.dataset, v = el.value, t = nowI(); unlocked = Date.now();
+  if (d.s) SD.sig = { ...SD.sig, [d.s]: v, u: t };
+  else { const p = SD[d.l].find(x => x.id === d.i); if (d.d) { const e = p.dia.find(x => x.id === d.d); e[d.f] = v; e.u = t; } else { p[d.f] = v; if (d.l === 'pr') { const dt = el.closest('details'); if (dt) dt.querySelector('summary').innerHTML = sm(p); } } p.u = t; }
+  saveSD();
+}
+function renderSind() {
+  const f = (lab, a, v, t = 'text') => `<label>${lab}<input type="${t}" ${a} value="${esc(v)}"></label>`;
+  const ta = (lab, a, v) => `<label>${lab}<textarea ${a}>${esc(v)}</textarea></label>`;
+  const sel = (lab, a, o, v) => `<label>${lab}<select ${a}><option value=""></option>${o.map(x => `<option${x === v ? ' selected' : ''}>${x}</option>`).join('')}</select></label>`;
+  const g = SD.sig || {}, live = a => (a || []).filter(x => !x.del), S = 'data-s=';
+  const refs = live(SD.ref).map(r => { const a = `data-l="ref" data-i="${r.id}"`; return `<div class="card sx"><div class="sg">${f('Nome', a + ' data-f="nome"', r.nome)}${f('Ruolo', a + ' data-f="ruolo"', r.ruolo)}${f('Telefono', a + ' data-f="tel"', r.tel, 'tel')}${f('Email', a + ' data-f="email"', r.email, 'email')}</div>${ta('Note', a + ' data-f="note"', r.note)}
+    <div class="ob"><button class="btn ghost" data-act="call" data-id="${r.id}">Chiama</button><button class="btn ghost" data-act="mail" data-id="${r.id}">Scrivi</button><button class="btn ghost" data-act="delref" data-id="${r.id}">Elimina</button></div></div>`; }).join('');
+  const prs = live(SD.pr).sort((a, b) => (b.apertura || '').localeCompare(a.apertura || '')).map(p => {
+    const a = `data-l="pr" data-i="${p.id}"`;
+    const dia = live(p.dia).sort((x, y) => (y.data || '').localeCompare(x.data || '')).map(d => { const b = `${a} data-d="${d.id}"`; return `<div class="dx"><div class="sg">${f('Data', b + ' data-f="data"', d.data, 'date')}${sel('Tipo', b + ' data-f="tipo"', CONTATTI, d.tipo)}</div>${ta('Cosa è successo e con quale esito', b + ' data-f="testo"', d.testo)}<button class="btn ghost" data-act="deldia" data-id="${p.id}" data-d="${d.id}">Elimina voce</button></div>`; }).join('');
+    return `<details class="card pd"${openP === p.id ? ' open' : ''}><summary>${sm(p)}</summary>
+      <div class="sg">${f('Titolo', a + ' data-f="titolo"', p.titolo)}${sel('Tipo', a + ' data-f="tipo"', TIPI, p.tipo)}${sel('Stato', a + ' data-f="stato"', STATI, p.stato)}${f('Data apertura', a + ' data-f="apertura"', p.apertura, 'date')}${f('Controparte', a + ' data-f="controparte"', p.controparte)}${f('Importo contestato €', a + ' data-f="importo"', p.importo, 'number')}${f('Prossima scadenza', a + ' data-f="scad"', p.scad, 'date')}${f('Mese collegato (ore e cedolino)', a + ' data-f="mese"', p.mese, 'month')}</div>
+      ${ta('Documenti collegati (quali sono e dove si trovano)', a + ' data-f="doc"', p.doc)}${ta('Note', a + ' data-f="note"', p.note)}
+      <h4>Diario</h4>${dia || '<p class="hint">Nessuna voce.</p>'}
+      <div class="ob"><button class="btn ghost" data-act="adddia" data-id="${p.id}">Aggiungi voce al diario</button><button class="btn" data-act="dossier" data-id="${p.id}">Dossier stampabile</button><button class="btn ghost" data-act="delpr" data-id="${p.id}">Elimina pratica</button></div></details>`;
+  }).join('');
+  $('view').innerHTML = `<div class="sw"><div class="ob"><button class="btn ghost" data-act="slock">Blocca ora</button></div>
+    <h3>Il mio sindacato</h3><div class="card"><div class="sg">${f('Sindacato (sigla e nome)', S + '"nome"', g.nome)}${f('Sede o struttura territoriale', S + '"sede"', g.sede)}${f('Tessera n.', S + '"tessera"', g.tessera)}${f('Data iscrizione', S + '"iscrizione"', g.iscrizione, 'date')}${f('Quota mensile €', S + '"quota"', g.quota, 'number')}</div>${ta('Note', S + '"note"', g.note)}</div>
+    <h3>Referenti</h3>${refs || '<p class="hint">Nessun referente.</p>'}<div class="ob"><button class="btn ghost" data-act="addref">Aggiungi referente</button></div>
+    <h3>Pratiche e vertenze</h3>${prs || '<p class="hint">Nessuna pratica.</p>'}<div class="ob"><button class="btn" data-act="addpr">Nuova pratica</button></div></div>`;
+  const v = $('view');
+  v.onchange = e => { if (e.target.dataset.f || e.target.dataset.s) setv(e.target); };
+  v.onclick = e => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const d = b.dataset, t = nowI(); unlocked = Date.now();
+    if (d.act === 'slock') { unlocked = 0; return sindLock(); }
+    if (d.act === 'dossier') return dossier(d.id);
+    if (d.act === 'call' || d.act === 'mail') { const r = SD.ref.find(x => x.id === d.id), val = r && (d.act === 'call' ? r.tel : r.email); return val ? (location.href = (d.act === 'call' ? 'tel:' : 'mailto:') + val) : say(d.act === 'call' ? 'Inserisci prima il numero di telefono.' : 'Inserisci prima l’indirizzo email.'); }
+    const pr = SD.pr.find(x => x.id === d.id);
+    if (d.act === 'addref') SD.ref.push({ id: uid(), nome: '', ruolo: '', tel: '', email: '', note: '', u: t });
+    if (d.act === 'delref') { const r = SD.ref.find(x => x.id === d.id); r.del = true; r.u = t; }
+    if (d.act === 'addpr') { const id = uid(); SD.pr.push({ id, titolo: '', stato: 'Aperta', apertura: ymd(new Date()), dia: [], u: t }); openP = id; }
+    if (d.act === 'delpr') { if (!confirm('Eliminare la pratica e il suo diario?')) return; pr.del = true; pr.u = t; }
+    if (d.act === 'adddia') { pr.dia.push({ id: uid(), data: ymd(new Date()), tipo: 'Incontro', testo: '', u: t }); pr.u = t; openP = pr.id; }
+    if (d.act === 'deldia') { const x = pr.dia.find(y => y.id === d.d); x.del = true; x.u = t; pr.u = t; openP = pr.id; }
+    saveSD(); renderSind();
+  };
+}
+function dossier(id) {
+  loadSD(); const p = SD.pr.find(x => x.id === id), g = SD.sig || {}, row = (a, b) => b ? `<div class="pr"><span>${esc(a)}</span><b>${esc(b)}</b></div>` : '';
+  const dia = (p.dia || []).filter(x => !x.del).sort((a, b) => (a.data || '').localeCompare(b.data || '')), rf = SD.ref.filter(x => !x.del);
+  let rep = '';
+  if (p.mese) {
+    const [y, m] = p.mese.split('-').map(Number), r = analyze(y, m - 1), nm = cap(new Date(y, m - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }));
+    rep = `<h3>Ore e cedolino: ${nm}</h3>${row('Ore lavorate', fmt(r.t.h))}${row('Ordinarie', fmt(r.t.o))}${row('Straordinarie', fmt(r.t.s))}${row('Lordo stimato dalle ore', eur(r.L))}${nz(r.c.l) ? row('Imponibile lordo da cedolino', eur(r.c.l)) + row('Differenza', eur(r.L - r.c.l)) : ''}
+      ${r.A.length ? '<ol class="anl">' + r.A.map(a => `<li class="an ${a.s}"><b>${cap(a.s)}: ${a.t}</b><p>${a.d}</p>${a.e ? `<p><em>Impatto stimato: ${eur(a.e)} lordi.</em></p>` : ''}</li>`).join('') + '</ol>' : '<p class="hint">Nessuna anomalia rilevata.</p>'}`;
+  }
+  $('view').onclick = null; $('view').onchange = null;
+  $('view').innerHTML = `<div class="ob noprint"><button class="btn ghost" id="dback">‹ Torna alla sezione</button><button class="btn" id="dprint">Stampa il dossier</button></div>
+    <div class="card" id="rep"><h1>Dossier: ${esc(p.titolo || 'pratica')}</h1><p class="hint">Generato il ${new Date().toLocaleDateString('it-IT')} da Mnemonyx versione ${VERSION}</p>
+    <h3>Pratica</h3>${row('Sindacato', g.nome)}${row('Sede', g.sede)}${row('Tipo', p.tipo)}${row('Stato', p.stato)}${row('Data apertura', p.apertura)}${row('Controparte', p.controparte)}${row('Importo contestato', p.importo ? eur(+p.importo) : '')}${row('Prossima scadenza', p.scad)}
+    ${rf.length ? '<h3>Referenti</h3>' + rf.map(r => row(r.nome + (r.ruolo ? ', ' + r.ruolo : ''), [r.tel, r.email].filter(Boolean).join(' / '))).join('') : ''}
+    <h3>Cronologia</h3>${dia.length ? dia.map(d => `<div class="an"><b>${esc(d.data)}: ${esc(d.tipo)}</b><p>${esc(d.testo).replace(/\n/g, '<br>')}</p></div>`).join('') : '<p class="hint">Nessuna voce nel diario.</p>'}
+    ${p.doc ? `<h3>Documenti collegati</h3><p>${esc(p.doc).replace(/\n/g, '<br>')}</p>` : ''}${p.note ? `<h3>Note</h3><p>${esc(p.note).replace(/\n/g, '<br>')}</p>` : ''}${rep}
+    <p class="hint">Documento riservato, generato dai dati inseriti: non sostituisce la consulenza del sindacato o di un professionista. ${COPY}.</p></div>`;
+  $('dback').onclick = () => go('sind'); $('dprint').onclick = () => window.print();
 }
 
 /* ---------- Voce ---------- */
