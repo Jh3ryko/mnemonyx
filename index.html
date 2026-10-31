@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.9.1 (31/10/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice
+  Versione 0.10.0 (31/10/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -12,6 +12,13 @@
 <meta name="copyright" content="Kymera Software Studio - All rights reserved">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#0B0B0F">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Mnemonyx">
 <title>Mnemonyx</title>
 <style>
 :root{--bg:#0B0B0F;--panel:#14141B;--panel2:#1D1D28;--line:#2B2B3A;--p:#8B5CF6;--p2:#B197FC;--text:#E9E7F2;--muted:#9390A8;--err:#F87171;--sw:264px;--sc:64px}
@@ -221,7 +228,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.9.1', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.10.0', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -289,7 +296,8 @@ const MENU = [
 const ALL = MENU.flatMap(m => m.items || [m]);
 const $ = id => document.getElementById(id);
 const isDesk = () => innerWidth > 768;
-let built = false, idleT, demo = false;
+let built = false, idleT, demo = false, ip = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); ip = e; });
 if (PREVIEW) { $('pv').hidden = false; $('pv').onclick = () => { demo = true; enter('Modalità anteprima'); }; }
 
 /* ---------- Sessione (Supabase Auth, solo REST) ---------- */
@@ -303,7 +311,7 @@ async function authReq(path, body) {
 const loadS = () => JSON.parse(localStorage.getItem('mnx_s') || sessionStorage.getItem('mnx_s') || 'null');
 function saveS(j, remember) {
   const [on, off] = remember ? [localStorage, sessionStorage] : [sessionStorage, localStorage];
-  on.setItem('mnx_s', JSON.stringify({ access_token: j.access_token, refresh_token: j.refresh_token }));
+  on.setItem('mnx_s', JSON.stringify({ access_token: j.access_token, refresh_token: j.refresh_token, email: (j.user && j.user.email) || (loadS() || {}).email }));
   off.removeItem('mnx_s');
 }
 function logout(msg) {
@@ -327,7 +335,7 @@ $('out').onclick = () => { say('Arrivederci.'); logout(); };
   const s = loadS();
   if (s && CFG.url) {
     const remember = !!localStorage.getItem('mnx_s');
-    try { const j = await authReq('token?grant_type=refresh_token', { refresh_token: s.refresh_token }); saveS(j, remember); TOK = j.access_token; enter(j.user.email); return; } catch (e) {}
+    try { const j = await authReq('token?grant_type=refresh_token', { refresh_token: s.refresh_token }); saveS(j, remember); TOK = j.access_token; enter(j.user.email); return; } catch (e) { if (!navigator.onLine) { TOK = s.access_token; enter(s.email || ''); return; } }
   }
   if (!CFG.url && !PREVIEW) $('err').textContent = 'Mancano url e key di Supabase nel file.';
 })();
@@ -519,6 +527,11 @@ const settings = () => `<div class="card big"><h1>Impostazioni</h1>
     <label class="chk"><input type="radio" name="tk" value="off"> Ferma</label>
     <small>Se il tuo computer ha le animazioni disattivate, scegli «Sempre in movimento» per farla scorrere.</small>
   </fieldset>
+  <fieldset class="st"><legend>App sul telefono</legend>
+    <small id="inz"></small>
+    <div class="ob"><button class="btn" id="inst" hidden>Installa Mnemonyx</button></div>
+    <small>iPhone: apri il sito in Safari, tocca Condividi e poi «Aggiungi alla schermata Home». Android: menu del browser, «Installa app».</small>
+  </fieldset>
   <fieldset class="st"><legend>Dati e backup</legend>
     <small id="bkd">${bkInfo()}</small>
     <div class="ob"><button class="btn" id="bkx">Esporta backup</button><button class="btn ghost" id="bki">Importa backup</button><input type="file" id="bkf" accept=".json,application/json" hidden></div>
@@ -531,6 +544,10 @@ function setTk(m) {
 }
 function initSettings() {
   const cur = localStorage.getItem('mnx_tk') || 'on';
+  const sa = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  $('inz').textContent = sa ? 'Stai già usando Mnemonyx come app.' : '';
+  $('inst').hidden = !ip || sa;
+  $('inst').onclick = async () => { ip.prompt(); try { await ip.userChoice; } catch (e) {} ip = null; $('inst').hidden = true; };
   $('bkx').onclick = exportBk; $('bki').onclick = () => $('bkf').click();
   $('bkf').onchange = () => { if ($('bkf').files[0]) importBk($('bkf').files[0]); $('bkf').value = ''; };
   document.querySelectorAll('input[name=tk]').forEach(r => { r.checked = r.value === cur; r.onchange = () => setTk(r.value); });
@@ -779,6 +796,7 @@ function listen() {
 }
 $('mic').onclick = listen;
 addEventListener('keydown', e => { if (e.altKey && e.key.toLowerCase() === 'm' && !$('app').hidden) { e.preventDefault(); listen(); } });
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
 </script>
 </body>
 </html>
