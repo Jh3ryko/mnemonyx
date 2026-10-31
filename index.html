@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<!--
+  Mnemonyx - Kymera Software Studio - All rights reserved
+  Versione 0.9.1 (31/10/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice
+  Ricorda: aggiornare VERSION nello script a ogni modifica.
+-->
+<meta charset="utf-8">
+<meta name="author" content="Kymera Software Studio">
+<meta name="copyright" content="Kymera Software Studio - All rights reserved">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0B0B0F">
+<title>Mnemonyx</title>
+<style>
+:root{--bg:#0B0B0F;--panel:#14141B;--panel2:#1D1D28;--line:#2B2B3A;--p:#8B5CF6;--p2:#B197FC;--text:#E9E7F2;--muted:#9390A8;--err:#F87171;--sw:264px;--sc:64px}
+*{box-sizing:border-box;margin:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.55 "Segoe UI",system-ui,-apple-system,sans-serif}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--p2);outline-offset:2px}
+[hidden]{display:none!important}
+.word{font-family:"Palatino Linotype",Palatino,"Book Antiqua",Georgia,serif;letter-spacing:.04em}
+
+/* Accesso */
+#login{min-height:100%;display:grid;place-items:center;padding:20px;background:radial-gradient(70% 55% at 50% 0,#2b1857 0,transparent 70%),var(--bg)}
+#lf{width:100%;max-width:370px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:34px 28px 28px;display:grid;gap:14px;box-shadow:0 24px 70px #000a}
+#lf .lg{justify-self:center}
+#lf h1{text-align:center;font-size:34px;font-weight:500;line-height:1.1}
+.sub{text-align:center;color:var(--muted);margin-top:-8px;font-style:italic}
+label{display:grid;gap:6px;color:var(--muted);font-size:13px}
+input[type=email],input[type=password]{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;color:var(--text)}
+input:focus{border-color:var(--p);outline:none}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px}
+.btn{border:0;border-radius:10px;padding:12px;font-weight:600;cursor:pointer;background:linear-gradient(135deg,#6D28D9,#A78BFA);color:#fff}
+.btn:hover{filter:brightness(1.1)}
+.btn.ghost{background:none;border:1px solid var(--line);color:var(--p2);font-weight:400}
+.btn.ghost:hover{border-color:var(--p);filter:none}
+#err{min-height:20px;color:var(--err);font-size:13px;text-align:center}
+
+/* App */
+#app{display:flex;height:100dvh}
+#side{width:var(--sw);flex:none;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden;transition:width .2s,transform .2s}
+.sh{display:flex;align-items:center;gap:10px;height:60px;padding:0 12px;border-bottom:1px solid var(--line)}
+.sh b{flex:1;font-size:20px;font-weight:500;white-space:nowrap}
+#tog{width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--p2);cursor:pointer;font-size:18px;line-height:1;transition:transform .2s}
+#tog:hover{background:var(--panel2)}
+body.collapsed #tog{transform:rotate(180deg)}
+#nav{flex:1;overflow:auto;padding:10px 8px}
+.ni,.gh,#out{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border:0;border-radius:8px;background:none;color:var(--muted);cursor:pointer;text-align:left;white-space:nowrap}
+.ni:hover,.gh:hover,#out:hover{background:var(--panel2);color:var(--text)}
+.ni.act{background:#8b5cf620;color:var(--p2);box-shadow:inset 3px 0 var(--p)}
+.ic{width:22px;flex:none;text-align:center;font-size:17px}
+.gh{margin-top:10px;font-weight:600;color:var(--text)}
+.gh small{font-weight:400;color:var(--muted);font-style:italic}
+.chv{margin-left:auto;transition:transform .2s}
+.grp:not(.open) .items{display:none}
+.grp:not(.open) .chv{transform:rotate(-90deg)}
+.items .ni{padding-left:24px}
+.sf{padding:8px;border-top:1px solid var(--line)}
+
+main{flex:1;min-width:0;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:12px;height:60px;padding:0 18px;background:var(--panel);border-bottom:1px solid var(--line)}
+#ttl{flex:1;font-size:18px;font-weight:600}
+#usr{color:var(--muted);font-size:13px}
+#mob{display:none;background:none;border:0;font-size:22px;cursor:pointer;color:var(--p2)}
+#mic{width:40px;height:40px;border-radius:50%;border:1px solid var(--p);background:none;color:var(--p2);cursor:pointer;display:grid;place-items:center}
+#mic:hover{background:#8b5cf622}
+#mic.on{background:var(--p);color:#fff;animation:pl 1.1s infinite}
+@keyframes pl{50%{box-shadow:0 0 0 8px #8b5cf633}}
+#view{flex:1;overflow:auto;padding:24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:20px}
+.card small{color:var(--muted)}
+.card .n{font-size:30px;color:var(--p2);line-height:1.3}
+.hint{margin-top:16px;color:var(--muted)}
+.big{max-width:620px}
+.big h1{font-size:26px;margin:10px 0 6px}
+.big p{color:var(--muted);max-width:60ch}
+.tag{display:inline-block;padding:2px 10px;border:1px solid var(--p);border-radius:99px;color:var(--p2);font-size:12px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);max-width:90%;background:var(--panel2);border:1px solid var(--p);border-radius:10px;padding:10px 16px;opacity:0;pointer-events:none;transition:opacity .2s}
+#toast.on{opacity:1}
+
+.cr{color:var(--muted);font-size:11px;line-height:1.5;text-align:center}
+.sf .cr{text-align:left;padding:8px 12px 0;white-space:normal}
+.st{border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:10px;margin:16px 0}
+.st legend{padding:0 6px;color:var(--p2)}
+.st small{color:var(--muted)}
+.info{color:var(--muted);font-size:13px}
+.ck{font-size:clamp(40px,7vw,62px);font-weight:300;line-height:1.05;font-variant-numeric:tabular-nums}
+.cd{color:var(--p2);font-size:17px;margin-top:4px}
+.tk-wrap{overflow:hidden;margin:18px 0;border:1px solid var(--line);border-radius:10px;background:var(--panel);padding:10px 0}
+.tk{display:flex;width:max-content;animation:sc 50s linear infinite}
+.tk-wrap:hover .tk,.tk-wrap:focus-within .tk{animation-play-state:paused}
+.tr{display:flex;gap:44px;padding-right:44px}
+@keyframes sc{to{transform:translateX(-50%)}}
+.ti,.ev{background:none;border:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.ti{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.ti i,.ev>i{width:9px;height:9px;border-radius:50%;flex:none}
+.ti span{color:var(--muted)}.ti span.a{color:#FBBF24}.ti span.r{color:var(--err)}
+.cols{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:16px;margin-bottom:16px}
+.ch{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ch button{width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:none;color:var(--p2);cursor:pointer}
+.cw,.cg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+.cw span{color:var(--muted);font-size:12px}
+.dy{aspect-ratio:1;border:1px solid transparent;border-radius:8px;background:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}
+.dy:hover{background:var(--panel2)}
+.dy em{display:flex;gap:2px;height:5px}
+.dy em i{width:5px;height:5px;border-radius:50%}
+.dy.td{border-color:var(--p)}
+.dy.sl{background:#8b5cf630}
+.ev{display:flex;gap:10px;align-items:flex-start;width:100%;padding:10px 0;border-top:1px solid var(--line);margin-top:8px}
+.ev>i{margin-top:7px}
+.ev small{display:block;color:var(--muted)}
+
+.ob{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.ob .btn{padding:9px 14px}
+.or{display:grid;grid-template-columns:70px 84px 84px 140px 1fr;gap:8px;align-items:center;padding:6px 4px;border-top:1px solid var(--line)}
+.or:first-child{border-top:0}
+.or.we{background:#8b5cf612}
+.or input,.or select,.par input{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;color:var(--text)}
+.od{font-weight:600}
+.oc{color:var(--muted);font-size:13px}
+.par label{margin-top:8px}
+
+#opay{margin:16px 0}
+.pr{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:7px 0;border-top:1px solid var(--line)}
+.pr input,#opay input{width:110px;margin-left:8px;text-align:right;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:5px 8px;color:var(--text)}
+.pr.tot{font-weight:600;color:var(--p2)}
+.warn{margin-top:10px;color:#FBBF24}
+
+.lamp{display:inline-block;width:12px;height:12px;margin-left:8px;border-radius:50%;background:#6b6b7a;vertical-align:middle}
+.lamp.ok,.sem.ok i{background:#22C55E}.lamp.ko,.sem.ko i{background:#EF4444}.lamp.wa,.sem.wa i{background:#F59E0B}
+.sem{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:12px;margin-bottom:8px}
+.sem i{width:34px;height:34px;border-radius:50%;flex:none;box-shadow:0 0 16px currentColor}
+.sem.ok{color:#22C55E}.sem.ko{color:#EF4444}.sem.wa{color:#F59E0B}
+.sem div{color:var(--text)}.sem b{display:block;font-size:18px}.sem span{color:var(--muted)}
+#rep h1{font-size:24px;margin:14px 0 2px}
+#rep h3{margin:20px 0 6px;color:var(--p2)}
+#rep ul{padding-left:20px}
+.anl{padding:0;list-style:none}
+.an{margin:10px 0;padding:10px 14px;border-left:4px solid var(--line);background:var(--panel2);border-radius:0 8px 8px 0}
+.an.alta{border-color:#EF4444}.an.media{border-color:#F59E0B}.an.bassa{border-color:#38BDF8}
+.an p{margin:4px 0;color:var(--muted)}
+
+@media(min-width:769px){
+ body.collapsed #side{width:var(--sc)}
+ body.collapsed .lbl,body.collapsed .sh .lg{display:none}
+ body.collapsed .sh{justify-content:center;padding:0}
+ body.collapsed .grp .items{display:block}
+ body.collapsed .items .ni{padding-left:12px}
+}
+@media(max-width:768px){
+ #side{position:fixed;inset:0 auto 0 0;z-index:20;box-shadow:10px 0 40px #000b}
+ body.collapsed #side{transform:translateX(-100%)}
+ #mob{display:block}
+ #usr{display:none}
+ #view{padding:16px}
+ .cols{grid-template-columns:1fr}
+ .or{grid-template-columns:58px 1fr 1fr}
+ .or select,.oc{grid-column:2/4}
+}
+@media print{
+ :root{--bg:#fff;--panel:#fff;--panel2:#f4f4f7;--text:#111;--muted:#444;--line:#ccc;--p:#5B21B6;--p2:#4C1D95}
+ #side,header,.noprint,#toast{display:none!important}
+ html,body,#app{height:auto;display:block}
+ body{background:#fff}
+ main{display:block}
+ #view{overflow:visible;padding:0}
+ #rep{border:0;padding:0}
+ .sem i{-webkit-print-color-adjust:exact;print-color-adjust:exact;box-shadow:none}
+ .an{break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media(prefers-reduced-motion:reduce){*:not(.tk){transition:none!important;animation:none!important}body.tk-sys .tk{animation:none;width:auto}body.tk-sys .tr{flex-wrap:wrap;gap:10px 28px}body.tk-sys .tk-dup{display:none}}
+body.tk-off .tk{animation:none;width:auto}body.tk-off .tr{flex-wrap:wrap;gap:10px 28px}body.tk-off .tk-dup{display:none}
+</style>
+</head>
+<body>
+
+<div id="login">
+  <form id="lf">
+    <span class="lg"></span>
+    <h1 class="word">Mnemonyx</h1>
+    <p class="sub">la memoria nera</p>
+    <label>Email<input id="em" type="email" required autocomplete="username"></label>
+    <label>Password<input id="pw" type="password" required autocomplete="current-password"></label>
+    <label class="chk"><input id="rm" type="checkbox"> Ricordami su questo dispositivo</label>
+    <button class="btn">Accedi</button>
+    <button type="button" class="btn ghost" id="pv" hidden>Anteprima senza accesso</button>
+    <div id="err" role="alert"></div>
+    <p class="cr" data-cr></p>
+  </form>
+</div>
+
+<div id="app" hidden>
+  <aside id="side">
+    <div class="sh"><span class="lg"></span><b class="word lbl">Mnemonyx</b><button id="tog" title="Apri o chiudi il menu" aria-label="Apri o chiudi il menu">‹</button></div>
+    <nav id="nav"></nav>
+    <div class="sf"><button id="out"><span class="ic">⏻</span><span class="lbl">Esci</span></button><div class="cr lbl" data-cr></div></div>
+  </aside>
+  <main>
+    <header>
+      <button id="mob" aria-label="Menu">☰</button>
+      <h2 id="ttl"></h2>
+      <span id="usr"></span>
+      <span id="sync" class="lamp" hidden></span>
+      <button id="mic" title="Comando vocale (Alt+M)" aria-label="Comando vocale">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button>
+    </header>
+    <section id="view"></section>
+  </main>
+</div>
+<div id="toast"></div>
+
+<script>
+// ===== CONFIGURAZIONE: incolla qui i dati del tuo progetto Supabase (Settings > API) =====
+const CFG = { url: 'https://oylmeqmcmhrfqhogffsk.supabase.co', key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95bG1lcW1jbWhyZnFob2dmZnNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM0MzM5MDMsImV4cCI6MjEwOTAwOTkwM30.MqKHBNLroFoS3xVjAxsiuoOdwJbjvKZZ64J_Z1h3uO8' };   // es. url: 'https://xxxx.supabase.co', key: 'anon public key'
+const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inattività
+const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
+
+
+const VERSION = '0.9.1', COPY = 'Kymera Software Studio - All rights reserved';
+document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
+const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
+<defs>
+<radialGradient id="mxg"><stop offset="0" stop-color="#8B5CF6" stop-opacity=".38"/><stop offset="1" stop-color="#8B5CF6" stop-opacity="0"/></radialGradient>
+<g id="mxL" fill="none" stroke-linecap="round">
+<path d="M14 11.5C11 28 17 46 14 70" stroke="#8B5CF6" stroke-width="2.4"/>
+<path d="M14 11.5C11 28 17 46 14 70" stroke="#DDD3FF" stroke-width=".8" stroke-dasharray="1.4 2.6"/>
+<path d="M25 10.5C28 24 21 36 25 57" stroke="#8B5CF6" stroke-width="2.4"/>
+<path d="M25 10.5C28 24 21 36 25 57" stroke="#DDD3FF" stroke-width=".8" stroke-dasharray="1.4 2.6"/>
+<g fill="#A78BFA" stroke="#0B0B0F" stroke-width="1.1">
+<ellipse cx="13.4" cy="29.6" rx="3.4" ry="2.6"/><ellipse cx="14.6" cy="46.8" rx="3.4" ry="2.6"/><circle cx="14.6" cy="64.3" r="3"/>
+<ellipse cx="24.9" cy="28.8" rx="3.2" ry="2.5"/><ellipse cx="23.8" cy="45.4" rx="3.2" ry="2.5"/><circle cx="25" cy="57" r="3.5"/>
+</g></g>
+</defs>
+<circle cx="48" cy="60" r="44" fill="url(#mxg)"/>
+<use href="#mxL"/><use href="#mxL" transform="matrix(-1 0 0 1 96 0)"/>
+<g fill="none" stroke-linecap="round">
+<path d="M3 14C28 7 68 7 93 14" stroke="#B197FC" stroke-width="3.2"/>
+<path d="M3 14C28 7 68 7 93 14" stroke="#0B0B0F" stroke-width=".8" stroke-dasharray="1.4 2.6"/>
+<path d="M48 9C48 18 48 24 48 31M48 31C44 34 40 37 38 40M48 31C52 34 56 37 58 40" stroke="#8B5CF6" stroke-width="2.4"/>
+<path d="M48 9C48 18 48 24 48 31M48 31C44 34 40 37 38 40M48 31C52 34 56 37 58 40" stroke="#DDD3FF" stroke-width=".8" stroke-dasharray="1.4 2.6"/>
+</g>
+<g stroke="#8B5CF6" stroke-width=".9" stroke-linejoin="round">
+<path d="M38 40H58L53 56H43z" fill="#26263f"/>
+<path d="M38 40L43 56H26z" fill="#171724"/>
+<path d="M58 40L70 56H53z" fill="#0e0e16"/>
+<path d="M26 56H43L48 95z" fill="#12121b"/>
+<path d="M43 56H53L48 95z" fill="#1f1f34"/>
+<path d="M53 56H70L48 95z" fill="#0a0a10"/>
+</g>
+<path d="M41 44H47M28 58L46 92" stroke="#B197FC" stroke-width="1.3" stroke-linecap="round" opacity=".75" fill="none"/>
+<g fill="none" stroke-linecap="round">
+<path d="M25 57C38 65 58 65 71 57" stroke="#8B5CF6" stroke-width="2.6"/>
+<path d="M25 57C38 65 58 65 71 57" stroke="#DDD3FF" stroke-width=".8" stroke-dasharray="1.4 2.6"/>
+</g>
+<g fill="#A78BFA" stroke="#0B0B0F" stroke-width="1.1">
+<ellipse cx="48" cy="21" rx="3.8" ry="4.4"/><circle cx="48" cy="31" r="2.8"/><circle cx="25" cy="57" r="3.5"/><circle cx="71" cy="57" r="3.5"/>
+<circle cx="3.5" cy="14" r="2.6"/><circle cx="92.5" cy="14" r="2.6"/>
+</g>
+</svg>`;
+const LOGO_S = `<svg viewBox="0 0 48 52" width="30" height="32" aria-hidden="true">
+<g stroke="#8B5CF6" stroke-width="1" stroke-linejoin="round">
+<path d="M15 8H33L30 22H18z" fill="#26263f"/><path d="M15 8L18 22H5z" fill="#171724"/><path d="M33 8L43 22H30z" fill="#0e0e16"/>
+<path d="M5 22H18L24 46z" fill="#12121b"/><path d="M18 22H30L24 46z" fill="#1f1f34"/><path d="M30 22H43L24 46z" fill="#0a0a10"/>
+</g>
+<g fill="none" stroke="#8B5CF6" stroke-width="2.2" stroke-linecap="round"><path d="M4 22C14 29 34 29 44 22"/><path d="M4 22C2 30 5 34 3 41"/><path d="M44 22C46 30 43 34 45 41"/></g>
+<g fill="#A78BFA" stroke="#0B0B0F" stroke-width="1"><circle cx="4" cy="22" r="3"/><circle cx="44" cy="22" r="3"/><circle cx="3.3" cy="38" r="2.4"/><circle cx="44.7" cy="38" r="2.4"/></g>
+</svg>`;
+document.querySelectorAll('#login .lg').forEach(e => e.innerHTML = LOGO);
+document.querySelectorAll('#side .lg').forEach(e => e.innerHTML = LOGO_S);
+
+const MENU = [
+  { id: 'dash', t: 'Dashboard', i: '◈', k: ['dashboard', 'cruscotto', 'oggi'] },
+  { g: 'Home', n: 'Oikos', i: '⌂', items: [
+    { id: 'spese', t: 'Spese', i: '€', k: ['spese', 'spesa'], d: 'Spese domestiche con categorie, voci ricorrenti, budget mensile e foto dello scontrino.' },
+    { id: 'mezzi', t: 'Mezzi', i: '➜', k: ['mezzi', 'moto', 'auto', 'automezzo', 'veicoli'], d: 'Moto e automezzo: bollo, assicurazione, revisione, tagliandi, carburante e costo per chilometro.' },
+    { id: 'salute', t: 'Salute', i: '✚', k: ['salute', 'medic', 'cure', 'anamnesi'], d: 'Anamnesi, cure, visite e appuntamenti medici, con referti allegati e PIN di protezione.' } ] },
+  { g: 'Work', n: 'Kairos', i: '◷', items: [
+    { id: 'ore', t: 'Ore lavorate', i: '◷', k: ['ore', 'timesheet', 'lavorate', 'straordinari'], d: 'Compilazione giornaliera: ordinarie, straordinarie, ROL, ferie e malattia, con riepilogo mensile.' },
+    { id: 'paga', t: 'Retribuzione', i: 'Σ', k: ['retribuzione', 'paga', 'stipendio', 'busta'], d: 'Calcolo mensile secondo CCNL e contratto, con confronto tra stima e busta paga.' },
+    { id: 'arch', t: 'Archivio', i: '▤', k: ['archivio', 'documenti'], d: 'Documenti, comunicazioni e attività di lavoro, con tag, ricerca e cronologia.' },
+    { id: 'sind', t: 'Sindacato', i: '⚖', k: ['sindac', 'vertenz'], d: 'Sindacato, referenti e contatti, vertenze e pratiche con stato e scadenze, diario degli incontri, documenti allegati e dossier di ore e busta paga. Accesso protetto da PIN.' } ] },
+  { id: 'imp', t: 'Impostazioni', i: '⚙', k: ['impostazioni', 'opzioni'], d: 'Parametri del contratto, voce, PIN della sezione Salute, backup e esportazione dei dati.' }
+];
+const ALL = MENU.flatMap(m => m.items || [m]);
+const $ = id => document.getElementById(id);
+const isDesk = () => innerWidth > 768;
+let built = false, idleT, demo = false;
+if (PREVIEW) { $('pv').hidden = false; $('pv').onclick = () => { demo = true; enter('Modalità anteprima'); }; }
+
+/* ---------- Sessione (Supabase Auth, solo REST) ---------- */
+async function authReq(path, body) {
+  if (!CFG.url) throw new Error('Configura url e key di Supabase all\'inizio del file.');
+  const r = await fetch(CFG.url + '/auth/v1/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json', apikey: CFG.key }, body: JSON.stringify(body) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error_description || j.msg || j.message || 'Accesso non riuscito.');
+  return j;
+}
+const loadS = () => JSON.parse(localStorage.getItem('mnx_s') || sessionStorage.getItem('mnx_s') || 'null');
+function saveS(j, remember) {
+  const [on, off] = remember ? [localStorage, sessionStorage] : [sessionStorage, localStorage];
+  on.setItem('mnx_s', JSON.stringify({ access_token: j.access_token, refresh_token: j.refresh_token }));
+  off.removeItem('mnx_s');
+}
+function logout(msg) {
+  localStorage.removeItem('mnx_s'); sessionStorage.removeItem('mnx_s');
+  demo = false; TOK = ''; syncUI('ok', ''); clearTimeout(idleT); try { speechSynthesis.cancel(); } catch (e) {}
+  $('app').hidden = true; $('login').hidden = false; $('pw').value = ''; $('err').textContent = msg || '';
+}
+function arm() { clearTimeout(idleT); idleT = setTimeout(() => logout('Sessione bloccata per inattività. Accedi di nuovo.'), IDLE_MIN * 60000); }
+['click', 'keydown', 'mousemove', 'touchstart'].forEach(e => addEventListener(e, () => { if (!$('app').hidden) arm(); }));
+
+$('lf').onsubmit = async ev => {
+  ev.preventDefault(); $('err').textContent = '';
+  try {
+    const j = await authReq('token?grant_type=password', { email: $('em').value.trim(), password: $('pw').value });
+    saveS(j, $('rm').checked); TOK = j.access_token; enter(j.user.email);
+  } catch (e) { $('err').textContent = e.message; }
+};
+$('out').onclick = () => { say('Arrivederci.'); logout(); };
+
+(async () => {
+  const s = loadS();
+  if (s && CFG.url) {
+    const remember = !!localStorage.getItem('mnx_s');
+    try { const j = await authReq('token?grant_type=refresh_token', { refresh_token: s.refresh_token }); saveS(j, remember); TOK = j.access_token; enter(j.user.email); return; } catch (e) {}
+  }
+  if (!CFG.url && !PREVIEW) $('err').textContent = 'Mancano url e key di Supabase nel file.';
+})();
+
+/* ---------- Sincronizzazione con Supabase (tabella mnx_dati, protetta da RLS) ---------- */
+let TOK = '', pushT;
+const dirty = new Set(JSON.parse(localStorage.getItem('mnx_dirty') || '[]'));
+function syncUI(s, t) { const e = $('sync'); if (!e) return; e.hidden = !TOK; e.className = 'lamp ' + s; e.title = t; }
+async function refreshTok() {
+  const s = loadS(); if (!s) return false;
+  try { const j = await authReq('token?grant_type=refresh_token', { refresh_token: s.refresh_token }); saveS(j, !!localStorage.getItem('mnx_s')); TOK = j.access_token; return true; } catch (e) { return false; }
+}
+async function api(path, opt = {}, retry = true) {
+  const r = await fetch(CFG.url + '/rest/v1/' + path, { ...opt, headers: { apikey: CFG.key, Authorization: 'Bearer ' + TOK, 'Content-Type': 'application/json', ...(opt.headers || {}) } });
+  if (r.status === 401 && retry && await refreshTok()) return api(path, opt, false);
+  if (!r.ok) throw new Error(await r.text());
+  return r;
+}
+function touch(k) {
+  if (!TOK) return;
+  localStorage.setItem('mnx_mod_' + k, new Date().toISOString()); dirty.add(k);
+  localStorage.setItem('mnx_dirty', JSON.stringify([...dirty]));
+  syncUI('wa', 'Modifiche da sincronizzare'); clearTimeout(pushT); pushT = setTimeout(push, 1500);
+}
+async function push() {
+  if (!TOK || !dirty.size) return;
+  try {
+    syncUI('wa', 'Sincronizzazione in corso');
+    const mk = [...dirty].filter(k => k === 'mnx_ore' || k === 'mnx_ced');   // prima di scrivere, unisco con quanto scritto da altri dispositivi
+    if (mk.length) {
+      const rem = await (await api('mnx_dati?select=chiave,valore&chiave=in.(' + mk.join(',') + ')')).json();
+      rem.forEach(r => { const lraw = localStorage.getItem(r.chiave); let loc = {}; try { loc = JSON.parse(lraw) || {}; } catch (e) {} const t = JSON.stringify({ ...r.valore, ...loc }); if (t !== lraw) localStorage.setItem(r.chiave, t); });
+    }
+    const rows = [...dirty].filter(k => localStorage.getItem(k) !== null).map(k => {
+      const v = localStorage.getItem(k); let val; try { val = JSON.parse(v); } catch (e) { val = v; }
+      return { chiave: k, valore: val, aggiornato: localStorage.getItem('mnx_mod_' + k) || new Date().toISOString() };
+    });
+    if (rows.length) await api('mnx_dati?on_conflict=user_id,chiave', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows) });
+    dirty.clear(); localStorage.setItem('mnx_dirty', '[]'); syncUI('ok', 'Dati sincronizzati');
+  } catch (e) { syncUI('ko', 'Sincronizzazione non riuscita: riprovo appena possibile'); }
+}
+async function pull() {
+  if (!TOK) return false;
+  try {
+    syncUI('wa', 'Sincronizzazione in corso');
+    const rows = await (await api('mnx_dati?select=chiave,valore,aggiornato')).json(), now = () => new Date().toISOString();
+    rows.filter(r => BK.includes(r.chiave)).forEach(r => {
+      const k = r.chiave, lraw = localStorage.getItem(k), lmod = localStorage.getItem('mnx_mod_' + k);
+      let loc = null; try { loc = lraw === null ? null : JSON.parse(lraw); } catch (e) { loc = lraw; }
+      const remNewer = !lmod || new Date(r.aggiornato) > new Date(lmod), merge = k === 'mnx_ore' || k === 'mnx_ced';
+      const out = loc === null ? r.valore : merge ? (remNewer ? { ...loc, ...r.valore } : { ...r.valore, ...loc }) : (remNewer ? r.valore : loc);
+      const s = typeof out === 'string' ? out : JSON.stringify(out);
+      if (s !== lraw) localStorage.setItem(k, s);
+      if (JSON.stringify(out) !== JSON.stringify(r.valore)) { dirty.add(k); localStorage.setItem('mnx_mod_' + k, now()); }
+      else localStorage.setItem('mnx_mod_' + k, r.aggiornato);
+    });
+    BK.forEach(k => { if (localStorage.getItem(k) !== null && !rows.some(r => r.chiave === k)) { dirty.add(k); localStorage.setItem('mnx_mod_' + k, now()); } });
+    localStorage.setItem('mnx_dirty', JSON.stringify([...dirty]));
+    await push(); return true;
+  } catch (e) { syncUI('ko', 'Offline o errore: uso i dati salvati su questo dispositivo'); return false; }
+}
+const curView = () => { const a = document.querySelector('.ni.act'); return a ? a.dataset.id : 'dash'; };
+addEventListener('online', () => { if (TOK) push(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && TOK && !$('app').hidden) pull().then(() => { if (['dash', 'ore'].includes(curView())) go(curView()); }); });
+
+/* ---------- Interfaccia ---------- */
+function enter(email) {
+  $('login').hidden = true; $('app').hidden = false; $('usr').textContent = email;
+  if (!built) { build(); built = true; setCol(isDesk() ? localStorage.getItem('mnx_col') === '1' : true); }
+  go('dash'); arm();
+  if (TOK) { syncUI('wa', 'Sincronizzazione in corso'); pull().then(() => go(curView())); } else syncUI('ok', '');
+}
+function setCol(c) {
+  document.body.classList.toggle('collapsed', c);
+  if (isDesk()) localStorage.setItem('mnx_col', c ? '1' : '0');
+}
+$('tog').onclick = () => setCol(!document.body.classList.contains('collapsed'));
+$('mob').onclick = () => setCol(false);
+
+function item(x) {
+  const b = document.createElement('button');
+  b.className = 'ni'; b.dataset.id = x.id; b.title = x.t;
+  b.innerHTML = `<span class="ic">${x.i}</span><span class="lbl">${x.t}</span>`;
+  b.onclick = () => go(x.id); return b;
+}
+function build() {
+  const nav = $('nav');
+  MENU.forEach(m => {
+    if (!m.items) return nav.appendChild(item(m));
+    const g = document.createElement('div'); g.className = 'grp open';
+    g.innerHTML = `<button class="gh" title="${m.g}"><span class="ic">${m.i}</span><span class="lbl">${m.g} <small>${m.n}</small></span><span class="lbl chv">▾</span></button><div class="items"></div>`;
+    g.querySelector('.gh').onclick = () => {
+      if (isDesk() && document.body.classList.contains('collapsed')) setCol(false); else g.classList.toggle('open');
+    };
+    m.items.forEach(x => g.querySelector('.items').appendChild(item(x)));
+    nav.appendChild(g);
+  });
+}
+function go(id) {
+  const x = ALL.find(a => a.id === id); if (!x) return;
+  $('ttl').textContent = x.t;
+  document.querySelectorAll('.ni').forEach(b => b.classList.toggle('act', b.dataset.id === id));
+  $('view').innerHTML = id === 'dash' ? dash() : id === 'imp' ? settings() : id === 'ore' ? oreView()
+    : `<div class="card big"><span class="tag">In arrivo</span><h1>${x.t}</h1><p>${x.d || ''}</p></div>`;
+  if (id === 'dash') initDash();
+  if (id === 'imp') initSettings();
+  if (id === 'ore') initOre();
+  if (!isDesk()) setCol(true);
+}
+
+/* ---------- Dashboard: orologio, striscia scadenze, agenda ---------- */
+const SEC = {
+  spese:  { n: 'Spese',  c: '#F59E0B', go: 'spese' },
+  mezzi:  { n: 'Mezzi',  c: '#38BDF8', go: 'mezzi' },
+  salute: { n: 'Salute', c: '#F472B6', go: 'salute' },
+  work:   { n: 'Work',   c: '#A78BFA', go: 'ore' }
+};
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const dayDiff = s => Math.round((new Date(s + 'T00:00') - new Date(ymd(new Date()) + 'T00:00')) / 864e5);
+const rel = n => n < 0 ? 'scaduto' : n === 0 ? 'oggi' : n === 1 ? 'domani' : `tra ${n} giorni`;
+const cap = s => s[0].toUpperCase() + s.slice(1);
+const evTitle = e => e.s === 'salute' ? 'Appuntamento' : e.t;   // privacy: niente dettagli medici in dashboard
+let EV = [], selD = '', vy = 0, vm = 0, clkT;
+
+function loadEvents() { return []; }   // TODO: leggere la tabella "eventi" di Supabase
+const dash = () => `<div class="ck" id="ck"></div><div class="cd" id="cd"></div>
+  <div class="tk-wrap" role="region" aria-label="Prossime scadenze per sezione"><div class="tk" id="tk"></div></div>
+  <div class="cols"><div class="card" id="cal"></div><div class="card" id="ag"></div></div>
+  <div class="grid">
+    <div class="card"><small>Ore del mese</small><div class="n" id="hm">—</div></div>
+    <div class="card"><small>Spese del mese</small><div class="n">—</div></div>
+  </div>
+  <p class="hint">Premi il microfono e di' «cosa ho oggi» oppure «prossime scadenze».</p>
+  <p class="hint" id="bkh"></p>`;
+
+function tick() {
+  const e = $('ck'); if (!e) return clearInterval(clkT);
+  const n = new Date();
+  e.textContent = n.toLocaleTimeString('it-IT');
+  $('cd').textContent = cap(n.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
+}
+function initDash() {
+  EV = loadEvents().sort((a, b) => a.d.localeCompare(b.d));
+  const t = new Date(); selD = ymd(t); vy = t.getFullYear(); vm = t.getMonth();
+  clearInterval(clkT); tick(); clkT = setInterval(tick, 1000);
+  ticker(); cal();
+  const mt = monthTot(t.getFullYear(), t.getMonth()); $('hm').textContent = mt.h ? fmt(mt.h) + ' h' : '—';
+  const bk = localStorage.getItem('mnx_bk'), old = bk && (Date.now() - new Date(bk)) / 864e5 > 30;
+  $('bkh').textContent = !bk ? 'Non hai ancora esportato un backup dei tuoi dati: lo trovi in Impostazioni.' : old ? 'L’ultimo backup ha più di 30 giorni: conviene farne uno nuovo (Impostazioni).' : '';
+}
+function ticker() {
+  const h = Object.entries(SEC).map(([k, m]) => {
+    const e = EV.find(x => x.s === k && dayDiff(x.d) >= 0), n = e ? dayDiff(e.d) : 0;
+    return `<button class="ti" data-go="${m.go}"><i style="background:${m.c}"></i><b>${m.n}:</b> ` +
+      (e ? `${evTitle(e)} <span class="${n <= 0 ? 'r' : n <= 3 ? 'a' : ''}">${rel(n)}</span>` : '<span>nessuna scadenza</span>') + '</button>';
+  }).join('');
+  const tk = $('tk'); tk.innerHTML = `<div class="tr">${h}</div>`;
+  const w1 = tk.firstChild.offsetWidth || 1, k = Math.max(1, Math.ceil(tk.parentNode.clientWidth / w1));
+  const dup = `<div class="tr tk-dup" aria-hidden="true">${h}</div>`;
+  tk.innerHTML = `<div class="tr">${h}</div>` + dup.repeat(2 * k - 1);
+  tk.style.animationDuration = Math.max(20, w1 * k / 50) + 's';
+  $('tk').querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+}
+function cal() {
+  const first = new Date(vy, vm, 1), off = (first.getDay() + 6) % 7, days = new Date(vy, vm + 1, 0).getDate(), today = ymd(new Date());
+  let c = '<span></span>'.repeat(off);
+  for (let d = 1; d <= days; d++) {
+    const k = `${vy}-${String(vm + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dots = EV.filter(e => e.d === k).slice(0, 3).map(e => `<i style="background:${SEC[e.s].c}"></i>`).join('');
+    c += `<button class="dy${k === today ? ' td' : ''}${k === selD ? ' sl' : ''}" data-d="${k}">${d}<em>${dots}</em></button>`;
+  }
+  $('cal').innerHTML = `<div class="ch"><button data-m="-1" aria-label="Mese precedente">‹</button><b>${cap(first.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }))}</b><button data-m="1" aria-label="Mese successivo">›</button></div>
+    <div class="cw">${[...'LMMGVSD'].map(x => `<span>${x}</span>`).join('')}</div><div class="cg">${c}</div>`;
+  $('cal').querySelectorAll('[data-d]').forEach(b => b.onclick = () => { selD = b.dataset.d; cal(); });
+  $('cal').querySelectorAll('[data-m]').forEach(b => b.onclick = () => { const d = new Date(vy, vm + +b.dataset.m, 1); vy = d.getFullYear(); vm = d.getMonth(); cal(); });
+  agenda();
+}
+function agenda() {
+  const es = EV.filter(e => e.d === selD), d = new Date(selD + 'T00:00');
+  $('ag').innerHTML = `<small>${cap(d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' }))}</small>` +
+    (es.length ? es.map(e => `<button class="ev" data-go="${SEC[e.s].go}"><i style="background:${SEC[e.s].c}"></i><span>${evTitle(e)}<small>${SEC[e.s].n}, ${e.k}</small></span></button>`).join('')
+               : '<p class="hint">Nessun evento: giornata libera.</p>');
+  $('ag').querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+}
+const settings = () => `<div class="card big"><h1>Impostazioni</h1>
+  <fieldset class="st"><legend>Striscia scorrevole della dashboard</legend>
+    <label class="chk"><input type="radio" name="tk" value="on"> Sempre in movimento</label>
+    <label class="chk"><input type="radio" name="tk" value="sys"> Segui le impostazioni del sistema</label>
+    <label class="chk"><input type="radio" name="tk" value="off"> Ferma</label>
+    <small>Se il tuo computer ha le animazioni disattivate, scegli «Sempre in movimento» per farla scorrere.</small>
+  </fieldset>
+  <fieldset class="st"><legend>Dati e backup</legend>
+    <small id="bkd">${bkInfo()}</small>
+    <div class="ob"><button class="btn" id="bkx">Esporta backup</button><button class="btn ghost" id="bki">Importa backup</button><input type="file" id="bkf" accept=".json,application/json" hidden></div>
+    <small>I dati sono salvati solo in questo browser: esporta un backup dopo gli inserimenti importanti e conservalo in un posto sicuro.</small>
+  </fieldset>
+  <p class="info">Mnemonyx versione ${VERSION}<br>${COPY}</p></div>`;
+function setTk(m) {
+  ['on', 'sys', 'off'].forEach(x => document.body.classList.toggle('tk-' + x, x === m));
+  localStorage.setItem('mnx_tk', m); touch('mnx_tk');
+}
+function initSettings() {
+  const cur = localStorage.getItem('mnx_tk') || 'on';
+  $('bkx').onclick = exportBk; $('bki').onclick = () => $('bkf').click();
+  $('bkf').onchange = () => { if ($('bkf').files[0]) importBk($('bkf').files[0]); $('bkf').value = ''; };
+  document.querySelectorAll('input[name=tk]').forEach(r => { r.checked = r.value === cur; r.onchange = () => setTk(r.value); });
+}
+setTk(localStorage.getItem('mnx_tk') || 'on');
+function speakAgenda(t) {
+  const oggi = /\boggi\b/.test(t), today = ymd(new Date());
+  const es = oggi ? EV.filter(e => e.d === today) : EV.filter(e => dayDiff(e.d) >= 0).slice(0, 3);
+  if (!es.length) return say(oggi ? 'Oggi non hai eventi.' : 'Non ci sono scadenze in arrivo.');
+  say(es.map(e => `${evTitle(e)}, ${rel(dayDiff(e.d))}`).join('. ') + '.');
+}
+
+/* ---------- Ore lavorate ---------- */
+const ORD = 8, CAUS = { fer: 'Ferie', mal: 'Malattia', nf: 'Non lavorato', fes: 'Festivo' };
+const GG = ['Dom', 'Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab'];
+let OD = {}, CED = {}, op = { q: 0, m: 0, b: 0, t: 0 }, oy = 0, om = 0;
+const fmt = n => (+n).toLocaleString('it-IT', { maximumFractionDigits: 2 });
+const eur = n => (Math.abs(n) < 0.005 ? 0 : n).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const loadOre = () => { try { OD = JSON.parse(localStorage.getItem('mnx_ore') || '{}'); op = { ...op, ...JSON.parse(localStorage.getItem('mnx_ore_p') || '{}') }; } catch (e) {} };
+const loadCed = () => { try { CED = JSON.parse(localStorage.getItem('mnx_ced') || '{}'); } catch (e) {} };
+const saveCed = () => { try { localStorage.setItem('mnx_ced', JSON.stringify(CED)); touch('mnx_ced'); } catch (e) {} };
+const saveOre = () => { try { localStorage.setItem('mnx_ore', JSON.stringify(OD)); localStorage.setItem('mnx_ore_p', JSON.stringify(op)); touch('mnx_ore'); touch('mnx_ore_p'); } catch (e) {} };
+function calc(k) {
+  const e = OD[k] || {}, dw = new Date(k + 'T00:00').getDay();
+  if (e.c) return { h: 0, o: 0, s: 0, r: +e.r || 0, c: e.c };
+  const h = +e.h || 0, we = dw === 0 || dw === 6;
+  return { h, r: +e.r || 0, o: we ? 0 : Math.min(h, ORD), s: we ? h : Math.max(0, h - ORD) };
+}
+function monthTot(y, m) {
+  loadOre(); const t = { h: 0, o: 0, s: 0, r: 0, fer: 0, mal: 0, nf: 0 }, pre = `${y}-${String(m + 1).padStart(2, '0')}-`;
+  Object.keys(OD).filter(k => k.startsWith(pre)).forEach(k => {
+    const c = calc(k); t.h += c.h; t.o += c.o; t.s += c.s; t.r += c.r; if (c.c && t[c.c] !== undefined) t[c.c]++;
+  });
+  return t;
+}
+const oreView = () => `<div class="ch"><button data-om="-1" aria-label="Mese precedente">‹</button><b id="omt"></b><button data-om="1" aria-label="Mese successivo">›</button></div>
+  <div class="grid" id="osum"></div>
+  <div class="card" id="opay"></div>
+  <div class="ob"><button class="btn" id="orep">Report del mese <span class="lamp" id="olamp"></span></button><button class="btn ghost" id="ofill">Compila lun-ven a 9 ore</button></div>
+  <div class="card" id="orows"></div>
+  <p class="hint">Inserisci le ore lavorate, pausa esclusa. Ordinarie fino a 8 ore al giorno; il resto e il sabato sono straordinari. Il CCNL potrebbe contarli oltre le 40 ore settimanali: la regola esatta si imposta dopo averla verificata.</p>`;
+function initOre() {
+  loadOre(); const n = new Date(); if (!oy) { oy = n.getFullYear(); om = n.getMonth(); }
+  const pre = () => `${oy}-${String(om + 1).padStart(2, '0')}-`;
+  const pay = t => {
+    loadCed(); const mk = pre().slice(0, 7), c = CED[mk] || {}, gd = op.b / 26, val = t.s * op.q * (1 + op.m / 100);
+    const L = op.b - (t.mal + t.nf) * gd + val + (c.tr || 0) * op.t + (c.alt || 0);
+    const has = c.l !== undefined && c.l !== null, row = (a, b, k = '') => `<div class="pr ${k}"><span>${a}</span><b>${b}</b></div>`;
+    const inp = (id, v, st) => `<input id="${id}" type="number" step="${st}" value="${v ?? ''}">`;
+    $('opay').innerHTML = '<small>Retribuzione stimata dalle tue ore</small>' +
+      row('Retribuzione mensile (lordo di un mese pieno)', eur(op.b)) + row(`Malattia (${t.mal} giorni)`, eur(-t.mal * gd)) + row(`Non lavorati (${t.nf} giorni)`, eur(-t.nf * gd)) +
+      row(`Straordinari (${fmt(t.s)} ore)`, eur(val)) + row(`Trasferta, giorni ${inp('ctr', c.tr, 1)}`, eur((c.tr || 0) * op.t)) +
+      row(`Altre voci € ${inp('calt', c.alt, 0.01)}`, eur(c.alt || 0)) + row('Lordo stimato', eur(L), 'tot') +
+      row(`Imponibile lordo da cedolino € ${inp('cl', c.l, 0.01)}`, has ? eur(c.l) : '—') +
+      (has ? row('Differenza (stimato meno cedolino)', eur(L - c.l), 'tot') : '') +
+      row(`Netto da cedolino € ${inp('cn', c.n, 0.01)}`, c.n ? eur(c.n) : '—') +
+      row(`Giorni non lavorati (NF) nel cedolino ${inp('cnf', c.nf, 1)}`, nz(c.nf) ? c.nf : '—') +
+      row(`Giorni di assenza o malattia nel cedolino ${inp('cma', c.ma, 1)}`, nz(c.ma) ? c.ma : '—') +
+      row(`ROL godute nel cedolino, ore ${inp('cro', c.ro, 0.5)}`, nz(c.ro) ? fmt(c.ro) : '—') +
+      row(`Ore di straordinario pagate nel cedolino ${inp('cst', c.st, 0.5)}`, nz(c.st) ? fmt(c.st) : '—') +
+      (c.n && has && c.n > c.l ? '<p class="hint">Il netto include voci che qui non sono conteggiate (per esempio trasferta o rimborsi): è normale che superi l\'imponibile lordo.</p>' : '') +
+      '<p class="hint">Sul cedolino il lordo del mese è il riquadro «imponibile lordo», cioè la retribuzione mensile meno i giorni trattenuti. Il netto non viene stimato, perché dipende da imposte, addizionali e detrazioni: inseriscilo dal cedolino.</p>';
+    [['ctr', 'tr'], ['calt', 'alt'], ['cl', 'l'], ['cn', 'n'], ['cnf', 'nf'], ['cma', 'ma'], ['cro', 'ro'], ['cst', 'st']].forEach(([id, f]) => $(id).onchange = () => {
+      const o = CED[mk] || {}, v = $(id).value; if (v === '') delete o[f]; else o[f] = parseFloat(v); CED[mk] = o; saveCed(); upd();
+    });
+  };
+  const upd = () => {
+    const t = monthTot(oy, om), val = t.s * op.q * (1 + op.m / 100);
+    document.querySelectorAll('.or').forEach(r => {
+      const c = calc(r.dataset.k);
+      r.querySelector('.oc').textContent = c.c ? CAUS[c.c] : (c.h || c.r) ? `ordinarie ${fmt(c.o)}, straordinarie ${fmt(c.s)}` : '';
+    });
+    $('osum').innerHTML = [['Ore lavorate', fmt(t.h)], ['Ordinarie', fmt(t.o)], ['Straordinarie', fmt(t.s)], ['ROL (ore)', fmt(t.r)], ['Ferie (giorni)', t.fer], ['Malattia (giorni)', t.mal], ['Non lavorati (giorni)', t.nf]]
+      .map(([a, b]) => `<div class="card"><small>${a}</small><div class="n">${b}</div></div>`).join('') +
+      `<div class="card par"><small>Valore straordinari stimato (lordo)</small><div class="n">${fmt(val)} €</div>
+       <label>Quota oraria €<input id="oq" type="number" step="0.0001" value="${op.q}"></label>
+       <label>Maggiorazione % (da verificare)<input id="om2" type="number" step="1" value="${op.m}"></label>
+       <label>Retribuzione mensile €<input id="ob" type="number" step="0.01" value="${op.b}"></label>
+       <label>Trasferta € al giorno<input id="ot" type="number" step="0.5" value="${op.t}"></label></div>`;
+    $('oq').onchange = () => { op.q = parseFloat($('oq').value) || 0; saveOre(); upd(); };
+    $('om2').onchange = () => { op.m = parseFloat($('om2').value) || 0; saveOre(); upd(); };
+    $('ob').onchange = () => { op.b = parseFloat($('ob').value) || 0; saveOre(); upd(); };
+    $('ot').onchange = () => { op.t = parseFloat($('ot').value) || 0; saveOre(); upd(); };
+    pay(t);
+    $('olamp').className = 'lamp ' + analyze(oy, om).state;
+  };
+  const draw = () => {
+    const days = new Date(oy, om + 1, 0).getDate(); let h = '';
+    $('omt').textContent = cap(new Date(oy, om, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }));
+    for (let d = 1; d <= days; d++) {
+      const k = pre() + String(d).padStart(2, '0'), e = OD[k] || {}, dw = new Date(k + 'T00:00').getDay();
+      h += `<div class="or${dw % 6 === 0 ? ' we' : ''}" data-k="${k}"><span class="od">${GG[dw]} ${d}</span>
+        <input type="number" step="0.5" min="0" max="24" data-f="h" placeholder="ore" value="${e.h ?? ''}" aria-label="Ore lavorate">
+        <input type="number" step="0.5" min="0" max="24" data-f="r" placeholder="ROL" value="${e.r ?? ''}" aria-label="Ore ROL">
+        <select data-f="c" aria-label="Causale"><option value="">Lavoro</option>${Object.entries(CAUS).map(([v, l]) => `<option value="${v}"${e.c === v ? ' selected' : ''}>${l}</option>`).join('')}</select><span class="oc"></span></div>`;
+    }
+    $('orows').innerHTML = h; upd();
+    $('orows').querySelectorAll('[data-f]').forEach(i => i.onchange = () => {
+      const k = i.closest('.or').dataset.k, e = OD[k] || {}, f = i.dataset.f;
+      if (i.value === '') delete e[f]; else e[f] = f === 'c' ? i.value : parseFloat(i.value);
+      if (Object.keys(e).length) OD[k] = e; else delete OD[k];
+      saveOre(); upd();
+    });
+  };
+  document.querySelectorAll('[data-om]').forEach(b => b.onclick = () => { const d = new Date(oy, om + +b.dataset.om, 1); oy = d.getFullYear(); om = d.getMonth(); draw(); });
+  $('orep').onclick = () => showReport(oy, om);
+  $('ofill').onclick = () => {
+    for (let d = 1; d <= new Date(oy, om + 1, 0).getDate(); d++) {
+      const k = pre() + String(d).padStart(2, '0'), dw = new Date(k + 'T00:00').getDay();
+      if (dw % 6 && !OD[k]) OD[k] = { h: 9 };
+    }
+    saveOre(); draw();
+  };
+  draw();
+}
+function setToday(h) {
+  loadOre(); const k = ymd(new Date()); OD[k] = { ...(OD[k] || {}), h }; saveOre();
+  if ($('orows')) initOre(); say(`Registrate ${fmt(h)} ore per oggi.`);
+}
+
+/* ---------- Report mensile con semaforo ---------- */
+const nz = v => v !== undefined && v !== null;
+function analyze(y, m) {
+  loadOre(); loadCed();
+  const pre = `${y}-${String(m + 1).padStart(2, '0')}-`, t = monthTot(y, m), c = CED[pre.slice(0, 7)] || {}, gd = op.b / 26;
+  const val = t.s * op.q * (1 + op.m / 100), L = op.b - (t.mal + t.nf) * gd + val + (c.tr || 0) * op.t + (c.alt || 0);
+  const keys = Object.keys(OD).filter(k => k.startsWith(pre)), A = [], OK = [], MISS = [], td = ymd(new Date());
+  const worked = keys.filter(k => calc(k).h > 0).length, dd = k => new Date(k + 'T00:00').toLocaleDateString('it-IT', { day: 'numeric', month: 'long' });
+  if (nz(c.l)) {
+    const d = L - c.l;
+    if (Math.abs(d) > 1) A.push({ s: 'alta', t: 'Il lordo non coincide', e: Math.abs(d), d: `Dalle tue ore il lordo stimato è ${eur(L)}, nel cedolino l’imponibile lordo è ${eur(c.l)}: differenza di ${eur(Math.abs(d))} ${d > 0 ? 'a tuo sfavore' : 'a tuo favore'}.`, a: 'Chiedi all’ufficio paghe il prospetto che porta dalle competenze al lordo e confrontalo voce per voce.' });
+    else OK.push(`Lordo: stimato ${eur(L)}, cedolino ${eur(c.l)}.`);
+  } else MISS.push('Imponibile lordo del cedolino');
+  if (nz(c.nf)) {
+    const d = c.nf - t.nf;
+    if (d > 0) A.push({ s: 'alta', t: 'Giorni non lavorati (NF) non coerenti con le tue ore', e: d * gd, d: `Nel cedolino risultano ${c.nf} giorni non lavorati, sul tuo foglio ${t.nf}. Hai registrato ore di lavoro in ${worked} giorni del mese: la differenza di ${d} giorni vale circa ${eur(d * gd)} lordi trattenuti.`, a: 'Chiedi l’elenco dei giorni marcati NF e verifica che non siano giorni lavorati.' });
+    else if (d < 0) A.push({ s: 'media', t: 'Meno giorni non lavorati nel cedolino che sul tuo foglio', e: -d * gd, d: `Sul tuo foglio hai ${t.nf} giorni non lavorati, nel cedolino ${c.nf}.`, a: 'Controlla le causali inserite.' });
+    else OK.push(`Giorni non lavorati: ${t.nf}, coerenti col cedolino.`);
+  } else MISS.push('Giorni non lavorati (NF) del cedolino');
+  if (nz(c.ma)) {
+    if (c.ma !== t.mal) A.push({ s: 'media', t: 'Giorni di malattia diversi', e: Math.abs(c.ma - t.mal) * gd, d: `Nel cedolino ${c.ma} giorni di assenza, sul tuo foglio ${t.mal} di malattia.`, a: 'Controlla le date e le causali.' });
+    else OK.push(`Giorni di malattia o assenza: ${t.mal}, coerenti col cedolino.`);
+  } else MISS.push('Giorni di assenza/malattia del cedolino');
+  if (t.mal > 0 && !(c.alt > 0)) A.push({ s: 'media', t: 'Malattia senza indennità o integrazione registrata', d: `Hai ${t.mal} giorni di malattia e tra le altre voci inserite non risulta nessuna indennità o integrazione. Può spettare in base al CCNL e alla normativa.`, a: 'Chiedi all’ufficio paghe come è stata trattata la malattia e dove compare in busta.' });
+  if (nz(c.ro)) {
+    if (Math.abs(c.ro - t.r) > 0.01) A.push({ s: 'media', t: 'Ore ROL diverse', e: Math.abs(c.ro - t.r) * op.q, d: `ROL godute: ${fmt(c.ro)} ore nel cedolino, ${fmt(t.r)} ore sul tuo foglio.`, a: 'Controlla le giornate con ROL e i saldi.' });
+    else OK.push(`ROL godute: ${fmt(t.r)} ore, coerenti col cedolino.`);
+  } else MISS.push('ROL godute del cedolino');
+  if (nz(c.st)) {
+    const d = t.s - c.st;
+    if (d > 0.01) A.push({ s: 'alta', t: 'Straordinari non pagati', e: d * op.q * (1 + op.m / 100), d: `Dalle tue ore risultano ${fmt(t.s)} ore oltre l’orario (8 ore al giorno, sabato compreso); nel cedolino ne risultano pagate ${fmt(c.st)}. Mancano ${fmt(d)} ore, circa ${eur(d * op.q * (1 + op.m / 100))} lordi${op.m ? '' : ' alla quota base, senza maggiorazione'}.`, a: 'Verifica nel CCNL come si contano gli straordinari (giornalieri o oltre le 40 ore settimanali) e se erano autorizzati; poi chiedi il pagamento.' });
+    else OK.push(`Straordinari: ${fmt(t.s)} ore, coerenti col cedolino.`);
+  } else if (t.s > 0) MISS.push('Ore di straordinario pagate nel cedolino');
+  const wk = {};
+  keys.forEach(k => { const d = new Date(k + 'T00:00'), mo = new Date(d); mo.setDate(d.getDate() - ((d.getDay() + 6) % 7)); const w = ymd(mo); wk[w] = (wk[w] || 0) + calc(k).h; });
+  Object.entries(wk).filter(([, h]) => h > 48).forEach(([w, h]) => A.push({ s: 'bassa', t: 'Settimana oltre le 48 ore', d: `Settimana dal ${dd(w)}: ${fmt(h)} ore. Il limite medio di legge è di 48 ore settimanali, straordinari compresi (da verificare sul periodo di riferimento del contratto).`, a: 'Controlla le ore inserite.' }));
+  keys.filter(k => calc(k).h > 12).forEach(k => A.push({ s: 'bassa', t: 'Giornata molto lunga', d: `${dd(k)}: ${fmt(calc(k).h)} ore.`, a: 'Controlla che non sia un errore di inserimento.' }));
+  keys.filter(k => OD[k].c && OD[k].h).forEach(k => A.push({ s: 'bassa', t: 'Ore inserite in un giorno con causale', d: `${dd(k)}: hai indicato ${CAUS[OD[k].c].toLowerCase()} e anche ${fmt(OD[k].h)} ore; le ore non vengono contate.`, a: 'Togli la causale o le ore.' }));
+  const miss = []; for (let d = 1; d <= new Date(y, m + 1, 0).getDate(); d++) { const k = pre + String(d).padStart(2, '0'), w = new Date(k + 'T00:00').getDay(); if (k < td && w % 6 && !OD[k]) miss.push(d); }
+  if (miss.length) A.push({ s: 'bassa', t: 'Giorni feriali senza registrazione', d: `Nessuna ora o causale per: ${miss.join(', ')}.`, a: 'Inserisci le ore, oppure una causale (ferie, festivo, non lavorato).' });
+  const rk = { alta: 0, media: 1, bassa: 2 }; A.sort((a, b) => rk[a.s] - rk[b.s] || (b.e || 0) - (a.e || 0));
+  const lg = A.find(a => a.t === 'Il lordo non coincide'); if (lg && A.length > 1) lg.d += ' Le anomalie seguenti spiegano in tutto o in parte questa differenza.';
+  const state = A.some(a => a.s !== 'bassa') ? 'ko' : (MISS.length || A.length) ? 'wa' : 'ok';
+  return { t, c, L, A, OK, MISS, state, worked };
+}
+function showReport(y, m) {
+  const r = analyze(y, m), t = r.t, c = r.c, nm = cap(new Date(y, m, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }));
+  const S = { ok: ['I conti tornano', 'Nessuna anomalia: i dati del tuo foglio coincidono con il cedolino.'], ko: ['I conti non tornano', `${r.A.filter(a => a.s !== 'bassa').length} anomalie da verificare`], wa: ['Controllo incompleto', 'Mancano dati del cedolino oppure ci sono note da verificare.'] }[r.state];
+  const row = (a, b) => `<div class="pr"><span>${a}</span><b>${b}</b></div>`, ul = a => a.length ? '<ul>' + a.map(x => `<li>${x}</li>`).join('') + '</ul>' : '<p class="hint">Nessuno.</p>';
+  $('view').innerHTML = `<div class="ob noprint"><button class="btn ghost" id="rback">‹ Torna alle ore</button><button class="btn" id="rprint">Stampa il report</button></div>
+   <div class="card" id="rep">
+    <div class="sem ${r.state}"><i></i><div><b>${S[0]}</b><span>${S[1]}</span></div></div>
+    <h1>Report mensile, ${nm}</h1>
+    <p class="hint">Generato il ${new Date().toLocaleDateString('it-IT')} da Mnemonyx versione ${VERSION}</p>
+    <p>Nel mese hai registrato ${r.worked} giornate di lavoro per ${fmt(t.h)} ore (${fmt(t.o)} ordinarie, ${fmt(t.s)} straordinarie, ${fmt(t.r)} di ROL, ${t.mal} giorni di malattia).${r.A.length ? ` Il controllo ha rilevato ${r.A.length} segnalazioni; la più rilevante: ${r.A[0].t.toLowerCase()}.` : ' Il controllo non ha rilevato anomalie.'}</p>
+    <h3>Riepilogo</h3>
+    ${row('Lordo stimato dalle tue ore', eur(r.L))}${row('Imponibile lordo da cedolino', nz(c.l) ? eur(c.l) : '—')}${nz(c.l) ? row('Differenza', eur(r.L - c.l)) : ''}${row('Netto da cedolino', nz(c.n) ? eur(c.n) : '—')}
+    <h3>Anomalie rilevate (${r.A.length})</h3>
+    ${r.A.length ? '<ol class="anl">' + r.A.map(a => `<li class="an ${a.s}"><b>${cap(a.s)}: ${a.t}</b><p>${a.d}</p>${a.e ? `<p><em>Impatto stimato: ${eur(a.e)} lordi.</em></p>` : ''}<p>Azione suggerita: ${a.a}</p></li>`).join('') + '</ol>' : '<p class="hint">Nessuna.</p>'}
+    <h3>Controlli superati</h3>${ul(r.OK)}
+    <h3>Dati da completare</h3>${ul(r.MISS)}
+    <p class="hint">Calcoli indicativi, basati sui dati inseriti: non sostituiscono la verifica dell’ufficio paghe o del sindacato. ${COPY}.</p></div>`;
+  $('rback').onclick = () => go('ore'); $('rprint').onclick = () => window.print();
+}
+
+/* ---------- Backup e ripristino dati ---------- */
+const BK = ['mnx_ore', 'mnx_ore_p', 'mnx_ced', 'mnx_tk'];
+function bkData() {
+  const dati = {}; BK.forEach(k => { const v = localStorage.getItem(k); if (v !== null) dati[k] = v; });
+  return { app: 'Mnemonyx', versione: VERSION, data: new Date().toISOString(), dati };
+}
+const bkInfo = () => { const d = localStorage.getItem('mnx_bk'); return d ? `Ultimo backup: ${new Date(d).toLocaleDateString('it-IT')}` : 'Non hai ancora fatto nessun backup.'; };
+function exportBk() {
+  const blob = new Blob([JSON.stringify(bkData(), null, 1)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Mnemonyx-backup-${ymd(new Date())}.json`;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  try { localStorage.setItem('mnx_bk', new Date().toISOString()); } catch (e) {}
+  if ($('bkd')) $('bkd').textContent = bkInfo(); say('Backup esportato.');
+}
+function importBk(file) {
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const o = JSON.parse(r.result);
+      if (o.app !== 'Mnemonyx' || typeof o.dati !== 'object') throw 0;
+      const ks = BK.filter(k => typeof o.dati[k] === 'string');
+      ks.filter(k => k !== 'mnx_tk').forEach(k => JSON.parse(o.dati[k]));
+      if (!ks.length) throw 0;
+      if (!confirm(`Sostituire i dati attuali con quelli del backup del ${new Date(o.data).toLocaleDateString('it-IT')}?`)) return;
+      ks.forEach(k => { localStorage.setItem(k, o.dati[k]); touch(k); });
+      setTk(localStorage.getItem('mnx_tk') || 'on'); OD = {}; CED = {}; go('imp'); say('Backup importato.');
+    } catch (e) { say('File di backup non valido.'); }
+  };
+  r.readAsText(file);
+}
+
+/* ---------- Voce ---------- */
+let tT;
+function say(t) {
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'it-IT'; speechSynthesis.speak(u); } catch (e) {}
+  const el = $('toast'); el.textContent = t; el.classList.add('on');
+  clearTimeout(tT); tT = setTimeout(() => el.classList.remove('on'), 3500);
+}
+function handle(raw) {
+  const t = raw.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const w = t.split(/\s+/);
+  if (/\bmenu\b/.test(t)) {
+    const close = /chiud|nascond/.test(t); setCol(close); return say(close ? 'Menu chiuso.' : 'Menu aperto.');
+  }
+  if (/\b(esci|logout|disconnetti)/.test(t)) { say('Arrivederci.'); return logout(); }
+  const mo = t.match(/(\d+(?:[.,]\d+)?)\s*ore/); if (mo && /oggi|lavorat/.test(t)) return setToday(parseFloat(mo[1].replace(',', '.')));
+  if (/(cosa ho|agenda|scadenz|appuntament|prossim)/.test(t)) return speakAgenda(t);
+  const hit = ALL.find(a => a.k.some(k => w.some(x => x.startsWith(k))));
+  if (hit) { go(hit.id); return say('Apro ' + hit.t.toLowerCase() + '.'); }
+  say('Non ho capito. Prova con: apri spese.');
+}
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+function listen() {
+  if (!SR) return say('Questo browser non supporta il riconoscimento vocale. Usa Chrome o Edge.');
+  const r = new SR(); r.lang = 'it-IT'; r.interimResults = false;
+  r.onstart = () => $('mic').classList.add('on');
+  r.onend = () => $('mic').classList.remove('on');
+  r.onerror = () => say('Non ho sentito nulla.');
+  r.onresult = e => handle(e.results[0][0].transcript);
+  try { speechSynthesis.cancel(); r.start(); } catch (e) {}
+}
+$('mic').onclick = listen;
+addEventListener('keydown', e => { if (e.altKey && e.key.toLowerCase() === 'm' && !$('app').hidden) { e.preventDefault(); listen(); } });
+</script>
+</body>
+</html>
