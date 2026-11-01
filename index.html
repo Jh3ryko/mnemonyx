@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.13.1 (31/10/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato
+  Versione 0.14.0 (31/10/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -188,6 +188,12 @@ table.cmp{width:100%;border-collapse:collapse}
 .cmp .tt td{font-weight:600}
 .cmp .up{color:#F87171}.cmp .down{color:#22C55E}
 
+.chip.c-x{color:#F87171;border-color:#F87171}.chip.c-w{color:#F59E0B;border-color:#F59E0B}.chip.c-ok{color:#22C55E;border-color:#22C55E}
+.mzr{border-top:1px solid var(--line);padding:10px 0}
+.mzr .ob{margin:6px 0 0;align-items:center}
+.pd summary small{color:var(--muted)}
+.mzs .card .n{font-size:22px}
+
 @media(min-width:769px){
  body.collapsed #side{width:var(--sc)}
  body.collapsed .lbl,body.collapsed .sh .lg{display:none}
@@ -270,7 +276,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.13.1', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.14.0', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -480,13 +486,14 @@ function go(id) {
   const x = ALL.find(a => a.id === id); if (!x) return;
   $('ttl').textContent = x.t; $('view').onclick = null; $('view').onchange = null;
   document.querySelectorAll('.ni').forEach(b => b.classList.toggle('act', b.dataset.id === id));
-  $('view').innerHTML = id === 'dash' ? dash() : id === 'imp' ? settings() : id === 'ore' ? oreView() : id === 'sind' || id === 'spese' ? ''
+  $('view').innerHTML = id === 'dash' ? dash() : id === 'imp' ? settings() : id === 'ore' ? oreView() : id === 'sind' || id === 'spese' || id === 'mezzi' ? ''
     : `<div class="card big"><span class="tag">In arrivo</span><h1>${x.t}</h1><p>${x.d || ''}</p></div>`;
   if (id === 'dash') initDash();
   if (id === 'imp') initSettings();
   if (id === 'ore') initOre();
   if (id === 'sind') initSind();
   if (id === 'spese') initSpese();
+  if (id === 'mezzi') initMezzi();
   if (id !== 'sind') unlocked = 0;
   if (!isDesk()) setCol(true);
 }
@@ -508,6 +515,7 @@ let EV = [], selD = '', vy = 0, vm = 0, clkT;
 function loadEvents() {   // scadenze delle pratiche sindacali (mostrate in forma riservata)
   loadSD(); loadSP(); const ev = SD.pr.filter(p => !p.del && p.scad && p.stato !== 'Chiusa').map(p => ({ t: p.titolo || 'Pratica', d: p.scad, s: 'work', k: 'scadenza', p: 1 })), t = new Date();
   [0, 1].forEach(o => { const m = new Date(t.getFullYear(), t.getMonth() + o, 1); previste(m.getFullYear(), m.getMonth()).forEach(x => ev.push({ t: x.r.t || 'Spesa', d: x.date, s: 'spese', k: 'scadenza' })); });
+  loadMZ(); L2(MZ.v).forEach(v => L2(v.sc).filter(x => x.d && dayDiff(x.d) >= -30).forEach(x => ev.push({ t: ((x.tipo || 'Scadenza') + ' ' + (v.nome || '')).trim(), d: x.d, s: 'mezzi', k: 'scadenza' })));
   return ev;
 }
 const dash = () => `<div class="ck" id="ck"></div><div class="cd" id="cd"></div>
@@ -789,7 +797,7 @@ function showReport(y, m) {
 }
 
 /* ---------- Backup e ripristino dati ---------- */
-const BK = ['mnx_ore', 'mnx_ore_p', 'mnx_ced', 'mnx_tk', 'mnx_sind', 'mnx_pin', 'mnx_spese'];
+const BK = ['mnx_ore', 'mnx_ore_p', 'mnx_ced', 'mnx_tk', 'mnx_sind', 'mnx_pin', 'mnx_spese', 'mnx_mezzi'];
 function bkData() {
   const dati = {}; BK.forEach(k => { const v = localStorage.getItem(k); if (v !== null) dati[k] = v; });
   return { app: 'Mnemonyx', versione: VERSION, data: new Date().toISOString(), dati };
@@ -1064,6 +1072,96 @@ function spCsv() {
 }
 function initSpese() { const n = new Date(); if (!spy) { spy = n.getFullYear(); spm = n.getMonth(); } renderSpese(); }
 
+/* ---------- Mezzi (auto, moto e altri veicoli) ---------- */
+const MZK = 'mnx_mezzi', SCT = ['Bollo', 'Assicurazione', 'Revisione', 'Tagliando', 'Cambio gomme', 'Altro'], MNT = ['Tagliando', 'Gomme', 'Freni', 'Batteria', 'Riparazione', 'Altro'];
+const PER = { Bollo: 12, Assicurazione: 12, Revisione: 24, Tagliando: 12, 'Cambio gomme': 6, Altro: 12 };
+const MZF = {
+  sc: { lab: 'Scadenze', add: 'Aggiungi scadenza', f: [['tipo', 'Tipo', 's', SCT], ['d', 'Scadenza', 'date'], ['imp', 'Importo previsto €', 'number'], ['pr', 'Avviso (giorni prima)', 'number'], ['note', 'Note', 'text']] },
+  rf: { lab: 'Rifornimenti', add: 'Aggiungi rifornimento', f: [['d', 'Data', 'date'], ['km', 'Km', 'number'], ['l', 'Litri', 'number'], ['imp', 'Importo €', 'number'], ['pieno', 'Pieno', 'c'], ['sp', 'Registra in Spese', 'c']] },
+  mn: { lab: 'Manutenzioni', add: 'Aggiungi manutenzione', f: [['d', 'Data', 'date'], ['km', 'Km', 'number'], ['tipo', 'Tipo', 's', MNT], ['t', 'Descrizione', 'text'], ['imp', 'Importo €', 'number'], ['of', 'Officina', 'text'], ['sp', 'Registra in Spese', 'c']] }
+};
+let MZ = { v: [] }, openM = '';
+const loadMZ = () => { try { MZ = { v: [], ...JSON.parse(localStorage.getItem(MZK) || '{}') }; } catch (e) { MZ = { v: [] }; } };
+const saveMZ = () => { try { localStorage.setItem(MZK, JSON.stringify(MZ)); touch(MZK); } catch (e) {} };
+function mergeMezzi(a, b) {
+  a = a || {}; b = b || {};
+  return { v: byId(a.v, b.v).map(x => { const pa = (a.v || []).find(y => y.id === x.id) || {}, pb = (b.v || []).find(y => y.id === x.id) || {}; return { ...x, sc: byId(pa.sc, pb.sc), rf: byId(pa.rf, pb.rf), mn: byId(pa.mn, pb.mn) }; }) };
+}
+MERGERS.mnx_mezzi = mergeMezzi;
+const L2 = a => (a || []).filter(x => !x.del), addM = (ds, n) => { const d = new Date(ds + 'T00:00'); d.setMonth(d.getMonth() + n); return ymd(d); };
+const dmy = s => s ? s.split('-').reverse().join('/') : '';
+function stt(s) { if (!s.d) return ['', '']; const n = dayDiff(s.d); return n < 0 ? ['Scaduta', 'x'] : n <= (+s.pr || 30) ? ['In scadenza', 'w'] : ['Ok', 'ok']; }
+function syncSp(v, rec, k) {
+  loadSP(); const id = 'mz-' + rec.id; const m = SP.mov.find(x => x.id === id);
+  if (rec.sp && +rec.imp > 0 && rec.d) {
+    const o = { id, d: rec.d, imp: +rec.imp, cat: 'Trasporti e carburante', t: ((k === 'rf' ? 'Carburante' : (rec.tipo || 'Manutenzione')) + ' ' + (v.nome || '')).trim(), mz: v.id, u: nowI(), del: false };
+    if (m) Object.assign(m, o); else SP.mov.push(o); saveSP();
+  } else if (m && !m.del) { m.del = true; m.u = nowI(); saveSP(); }
+}
+function mzStats(v) {
+  const rf = L2(v.rf).filter(x => x.d).sort((a, b) => a.d.localeCompare(b.d)), mn = L2(v.mn).filter(x => x.d), yr = String(new Date().getFullYear());
+  const kms = [...rf, ...mn].map(x => +x.km).filter(Boolean), km = kms.length > 1 ? Math.max(...kms) - Math.min(...kms) : 0;
+  let lf = null, lit = 0, tl = 0, tk = 0;
+  rf.forEach(x => {
+    const k = +x.km, l = +x.l || 0;
+    if (lf === null) { if (x.pieno && k) { lf = k; lit = 0; } return; }
+    lit += l; if (x.pieno && k) { if (k > lf && lit > 0) { tl += lit; tk += k - lf; } lf = k; lit = 0; }
+  });
+  const sm = a => a.reduce((s, x) => s + (+x.imp || 0), 0), fuel = sm(rf), man = sm(mn), lt = rf.reduce((s, x) => s + (+x.l || 0), 0), lt$ = sm(rf.filter(x => +x.l));
+  const y = sm(rf.filter(x => x.d.startsWith(yr))) + sm(mn.filter(x => x.d.startsWith(yr)));
+  const c = (a, b) => `<div class="card"><small>${a}</small><div class="n">${b}</div></div>`, d = x => x ? x : '—';
+  return `<div class="grid">${c('Km percorsi (tra prima e ultima registrazione)', d(km && fmt(km)))}${c('Consumo medio', d(tl && fmt(tk / tl) + ' km/l'))}${c('Prezzo medio carburante', d(lt && eur(lt$ / lt) + '/l'))}${c('Costo totale (carburante + manutenzione)', d(fuel + man && eur(fuel + man)))}${c('Costo per km', d(km && fuel + man && eur((fuel + man) / km)))}${c('Speso quest’anno', d(y && eur(y)))}</div>`;
+}
+const mzIn = (a, df, val) => {
+  const [f, lab, t, o] = df, at = `${a} data-f="${f}"`;
+  if (t === 's') return `<label>${lab}<select ${at}><option value=""></option>${o.map(x => `<option${x === val ? ' selected' : ''}>${x}</option>`).join('')}</select></label>`;
+  if (t === 'c') return `<label class="chk"><input type="checkbox" ${at}${val ? ' checked' : ''}>${lab}</label>`;
+  return `<label>${lab}<input type="${t}"${t === 'number' ? ' step="any"' : ''} ${at} value="${esc(val)}"></label>`;
+};
+function mzSum(v) {
+  const nx = L2(v.sc).filter(s => s.d).sort((a, b) => a.d.localeCompare(b.d))[0], st = nx && stt(nx);
+  return `<b>${esc(v.nome || 'Nuovo mezzo')}</b><small>${esc([v.targa, v.mm].filter(Boolean).join(', '))}</small>${nx ? `<span class="chip c-${st[1]}">${esc(nx.tipo || 'Scadenza')}: ${dmy(nx.d)}</span>` : ''}`;
+}
+function mzCard(v) {
+  const a = `data-v="${v.id}"`, vf = [['nome', 'Nome (es. Panda)', 'text'], ['tipo', 'Tipo', 's', ['Auto', 'Moto', 'Furgone', 'Altro']], ['targa', 'Targa', 'text'], ['mm', 'Marca e modello', 'text'], ['anno', 'Anno di immatricolazione', 'number'], ['car', 'Alimentazione', 's', ['Benzina', 'Diesel', 'GPL', 'Metano', 'Elettrico', 'Ibrido']]];
+  const sect = k => {
+    const F = MZF[k], rows = L2(v[k]).sort((x, y) => k === 'sc' ? (x.d || '9').localeCompare(y.d || '9') : (y.d || '').localeCompare(x.d || ''));
+    return `<h4>${F.lab}</h4>${rows.map(r => { const b = `${a} data-k="${k}" data-r="${r.id}"`, s = k === 'sc' ? stt(r) : ['', '']; return `<div class="mzr"><div class="sg">${F.f.map(df => mzIn(b, df, r[df[0]])).join('')}</div><div class="ob">${s[0] ? `<span class="chip c-${s[1]}">${s[0]}</span>` : ''}${k === 'sc' ? `<button class="btn ghost" data-act="renew" data-v="${v.id}" data-r="${r.id}">Pagata e rinnovata</button>` : ''}<button class="btn ghost" data-act="delrec" data-v="${v.id}" data-k="${k}" data-r="${r.id}">Elimina</button></div></div>`; }).join('') || '<p class="hint">Nessuna voce.</p>'}<div class="ob"><button class="btn ghost" data-act="addrec" data-v="${v.id}" data-k="${k}">${F.add}</button></div>`;
+  };
+  return `<details class="card pd" data-m="${v.id}"${openM === v.id ? ' open' : ''}><summary>${mzSum(v)}</summary><div class="sg">${vf.map(df => mzIn(a, df, v[df[0]])).join('')}</div>${sect('sc')}${sect('rf')}${sect('mn')}<h4>Costi e consumi</h4><div class="mzs">${mzStats(v)}</div>
+    <div class="ob"><button class="btn ghost" data-act="delv" data-v="${v.id}">Elimina mezzo</button></div></details>`;
+}
+function renderMezzi() {
+  loadMZ(); $('view').innerHTML = `<div class="sw">${L2(MZ.v).map(mzCard).join('') || '<p class="hint">Nessun mezzo: aggiungi la tua auto o la tua moto.</p>'}<div class="ob"><button class="btn" data-act="addv">Aggiungi mezzo</button></div></div>`;
+  const vw = $('view');
+  vw.onchange = e => {
+    const el = e.target, d = el.dataset, v = MZ.v.find(x => x.id === d.v); if (!v || !d.f) return;
+    const val = el.type === 'checkbox' ? el.checked : el.type === 'number' ? (el.value === '' ? '' : parseFloat(el.value)) : el.value, t = nowI();
+    if (d.k) { const r = v[d.k].find(x => x.id === d.r); r[d.f] = val; r.u = t; if (d.k !== 'sc') syncSp(v, r, d.k); } else v[d.f] = val;
+    v.u = t; saveMZ(); const det = el.closest('details'); det.querySelector('summary').innerHTML = mzSum(v); det.querySelector('.mzs').innerHTML = mzStats(v);
+    if (d.k === 'sc' && ['d', 'pr'].includes(d.f)) { openM = v.id; renderMezzi(); }
+  };
+  vw.onclick = e => {
+    const b = e.target.closest('[data-act]'); if (!b) return; const d = b.dataset, t = nowI(), tdy = ymd(new Date()), v = MZ.v.find(x => x.id === d.v);
+    if (d.act === 'addv') { const id = uid(); MZ.v.push({ id, nome: '', tipo: 'Auto', sc: [], rf: [], mn: [], u: t }); openM = id; }
+    else if (!v) return;
+    else if (d.act === 'delv') { if (!confirm('Eliminare il mezzo e tutte le sue registrazioni?')) return; v.del = true; v.u = t; }
+    else if (d.act === 'addrec') { const r = { id: uid(), u: t }; if (d.k === 'sc') r.pr = 30; else { r.d = tdy; r.sp = true; if (d.k === 'rf') r.pieno = true; } v[d.k].push(r); v.u = t; openM = v.id; }
+    else if (d.act === 'delrec') { const r = v[d.k].find(x => x.id === d.r); r.del = true; r.u = t; v.u = t; if (d.k !== 'sc') { r.sp = false; syncSp(v, r, d.k); } openM = v.id; }
+    else if (d.act === 'renew') {
+      const r = v.sc.find(x => x.id === d.r); if (+r.imp > 0) { loadSP(); SP.mov.push({ id: 'mz-' + r.id + '-' + (r.d || tdy), d: tdy, imp: +r.imp, cat: 'Trasporti e carburante', t: ((r.tipo || 'Scadenza') + ' ' + (v.nome || '')).trim(), mz: v.id, u: t }); saveSP(); }
+      r.d = addM(r.d || tdy, PER[r.tipo] || 12); r.u = t; v.u = t; openM = v.id; say(`Nuova scadenza: ${dmy(r.d)}.${+r.imp > 0 ? ' Spesa registrata.' : ''}`);
+    }
+    saveMZ(); renderMezzi();
+  };
+}
+function initMezzi() { renderMezzi(); }
+function speakMezzi(t) {
+  loadMZ(); const KW = [['assicuraz', 'Assicurazione'], ['bollo', 'Bollo'], ['revision', 'Revisione'], ['tagliando', 'Tagliando'], ['gomme', 'Cambio gomme']], k = KW.find(([w]) => t.includes(w));
+  const out = []; L2(MZ.v).forEach(v => L2(v.sc).filter(s => s.d && (!k || s.tipo === k[1])).sort((a, b) => a.d.localeCompare(b.d)).slice(0, 1).forEach(s => out.push(`${s.tipo || 'Scadenza'} ${v.nome || 'del mezzo'}: ${rel(dayDiff(s.d))}, il ${dmy(s.d)}`)));
+  say(out.length ? out.join('. ') + '.' : 'Non ho trovato scadenze dei mezzi.');
+}
+
 /* ---------- Voce ---------- */
 let tT;
 function say(t) {
@@ -1080,6 +1178,7 @@ function handle(raw) {
   if (/\b(esci|logout|disconnetti)/.test(t)) { say('Arrivederci.'); return logout(); }
   const ms = t.match(/(?:speso|pagato|spesa di)\s+(\d+(?:[.,]\d+)?)\s*euro\s*(?:di|per|in|al|alla|dal|dalla)?\s*(.*)/); if (ms) return addSpesaVoce(parseFloat(ms[1].replace(',', '.')), ms[2]);
   const mo = t.match(/(\d+(?:[.,]\d+)?)\s*ore/); if (mo && /oggi|lavorat/.test(t)) return setToday(parseFloat(mo[1].replace(',', '.')));
+  if (/(assicuraz|bollo|revision|tagliando|gomme)/.test(t) && /(quando|scad)/.test(t)) return speakMezzi(t);
   if (/(cosa ho|agenda|scadenz|appuntament|prossim)/.test(t)) return speakAgenda(t);
   const hit = ALL.find(a => a.k.some(k => w.some(x => x.startsWith(k))));
   if (hit) { go(hit.id); return say('Apro ' + hit.t.toLowerCase() + '.'); }
