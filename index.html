@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.12.0 (31/10/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce
+  Versione 0.13.0 (31/10/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -174,6 +174,20 @@ a.btn{text-decoration:none;display:inline-block;text-align:center}
 .bb i.w{background:#F59E0B}.bb i.x{background:#EF4444}
 .bb u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--text)}
 
+.mvw{border-top:1px solid var(--line);padding:6px 0}
+.mvw:first-child{border-top:0}
+.mvw .mv{border-top:0;padding:4px 0}
+.nf{display:flex;gap:8px;flex-wrap:wrap;padding:2px 0 4px}
+.nf select,.nf input{width:auto;min-width:150px;max-width:230px}
+.cmpw{overflow-x:auto}
+table.cmp{width:100%;border-collapse:collapse}
+.cmp th,.cmp td{padding:7px 10px;text-align:right;border-top:1px solid var(--line);white-space:nowrap}
+.cmp th{color:var(--muted);font-weight:500}
+.cmp th:first-child,.cmp td:first-child{text-align:left}
+.cmp .cu{background:#8b5cf61a;font-weight:600}
+.cmp .tt td{font-weight:600}
+.cmp .up{color:#F87171}.cmp .down{color:#22C55E}
+
 @media(min-width:769px){
  body.collapsed #side{width:var(--sc)}
  body.collapsed .lbl,body.collapsed .sh .lg{display:none}
@@ -256,7 +270,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.12.0', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.13.0', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -427,14 +441,14 @@ async function pull() {
 }
 const curView = () => { const a = document.querySelector('.ni.act'); return a ? a.dataset.id : 'dash'; };
 addEventListener('online', () => { if (TOK) push(); });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && TOK && !$('app').hidden) pull().then(() => { if (['dash', 'ore'].includes(curView())) go(curView()); }); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && TOK && !$('app').hidden) pull().then(() => { if (['dash', 'ore', 'spese'].includes(curView())) go(curView()); }); });
 
 /* ---------- Interfaccia ---------- */
 function enter(email) {
   $('login').hidden = true; $('app').hidden = false; $('usr').textContent = email;
   if (!built) { build(); built = true; setCol(isDesk() ? localStorage.getItem('mnx_col') === '1' : true); }
   go('dash'); arm();
-  if (TOK) { syncUI('wa', 'Sincronizzazione in corso'); pull().then(() => go(curView())); } else syncUI('ok', '');
+  if (TOK) { syncUI('wa', 'Sincronizzazione in corso'); pull().then(() => { if (curView() !== 'sind') go(curView()); }); } else syncUI('ok', '');
 }
 function setCol(c) {
   document.body.classList.toggle('collapsed', c);
@@ -827,22 +841,25 @@ function sindLock() {
   const has = !!p.h;
   $('view').onclick = null; $('view').onchange = null;
   $('view').innerHTML = `<div class="card big"><h1>Sindacato</h1><p>${has ? 'Sezione riservata: inserisci il PIN.' : 'Sezione riservata: scegli un PIN di almeno 4 cifre.'}</p>
-    <label>PIN<input id="pin" type="password" inputmode="numeric" autocomplete="off"></label>
-    ${has ? '' : '<label>Ripeti il PIN<input id="pin2" type="password" inputmode="numeric" autocomplete="off"></label>'}
-    <div class="ob"><button class="btn" id="pgo">${has ? 'Sblocca' : 'Imposta PIN'}</button></div><p class="warn" id="perr"></p>
+    <form id="pf"><label>PIN<input id="pin" type="password" inputmode="numeric" autocomplete="${has ? 'current-password' : 'new-password'}"></label>
+    ${has ? '' : '<label>Ripeti il PIN<input id="pin2" type="password" inputmode="numeric" autocomplete="new-password"></label>'}
+    <div class="ob"><button class="btn" id="pgo" type="submit">${has ? 'Sblocca' : 'Imposta PIN'}</button></div></form><p class="warn" id="perr" role="alert"></p>
     <small class="hint">Il PIN protegge la sezione sullo schermo. Se lo dimentichi puoi reimpostarlo da Impostazioni.</small></div>`;
-  const ok = async () => {
-    const v = $('pin').value, er = t => { $('perr').textContent = t; }; er('');
-    if (!(window.crypto && crypto.subtle)) return er('Questo browser non permette di usare il PIN (serve una connessione sicura HTTPS).');
-    if (has) { if (await sha(p.s + v) !== p.h) return er('PIN errato.'); }
-    else {
-      if (!/^\d{4,}$/.test(v)) return er('Il PIN deve avere almeno 4 cifre.');
-      if (v !== $('pin2').value) return er('I due PIN non coincidono.');
-      const s = uid(); localStorage.setItem(PINK, JSON.stringify({ s, h: await sha(s + v) })); touch(PINK);
-    }
-    unlocked = Date.now(); initSind();
+  $('pf').onsubmit = async e => {
+    e.preventDefault(); const er = t => { $('perr').textContent = t; }; er('');
+    try {
+      const v = $('pin').value;
+      if (!(window.crypto && crypto.subtle)) return er('Questo browser non permette di usare il PIN: serve una connessione sicura (HTTPS).');
+      if (has) { if (await sha(p.s + v) !== p.h) return er('PIN errato.'); }
+      else {
+        if (!/^\d{4,}$/.test(v)) return er('Il PIN deve avere almeno 4 cifre, solo numeri.');
+        if (v !== $('pin2').value) return er('I due PIN non coincidono.');
+        const s = uid(); localStorage.setItem(PINK, JSON.stringify({ s, h: await sha(s + v) })); touch(PINK);
+      }
+      unlocked = Date.now(); initSind();
+    } catch (err) { er('Non sono riuscito a completare l’operazione: ' + ((err && err.message) || err)); }
   };
-  $('pgo').onclick = ok; $('pin').onkeydown = e => { if (e.key === 'Enter') ok(); }; $('pin').focus();
+  $('pin').focus();
 }
 function initSind() { loadSD(); if (!unlocked || Date.now() - unlocked > 300000) return sindLock(); renderSind(); }
 const sm = p => `<b>${esc(p.titolo || 'Nuova pratica')}</b><span class="chip s-${(p.stato || '').replace(/\s/g, '')}">${esc(p.stato || 'Senza stato')}</span>${p.scad ? `<small>scadenza ${esc(p.scad)}</small>` : ''}`;
@@ -912,16 +929,39 @@ function dossier(id) {
 
 /* ---------- Spese domestiche ---------- */
 const SPK = 'mnx_spese';
-const DEFCAT = ['Casa e affitto', 'Bollette', 'Alimentari', 'Trasporti e carburante', 'Salute e farmacia', 'Abbonamenti', 'Tempo libero', 'Abbigliamento', 'Altro'];
+const DEFCAT = ['Casa e affitto', 'Bollette', 'Rate e finanziamenti', 'Alimentari', 'Trasporti e carburante', 'Salute e farmacia', 'Abbonamenti', 'Tempo libero', 'Abbigliamento', 'Altro'];
 let SP = null, spy = 0, spm = 0;
 const spNew = () => ({ cat: [...DEFCAT], bud: { tot: 0, c: {}, u: '' }, ric: [], mov: [] });
-const loadSP = () => { try { SP = { ...spNew(), ...JSON.parse(localStorage.getItem(SPK) || '{}') }; } catch (e) { SP = spNew(); } SP.bud = { tot: 0, c: {}, ...SP.bud }; };
+const loadSP = () => { try { SP = { ...spNew(), ...JSON.parse(localStorage.getItem(SPK) || '{}') }; } catch (e) { SP = spNew(); } SP.bud = { tot: 0, c: {}, ...SP.bud }; if (!SP.cat.includes('Rate e finanziamenti')) SP.cat.splice(Math.min(2, SP.cat.length), 0, 'Rate e finanziamenti'); };
 const saveSP = () => { try { localStorage.setItem(SPK, JSON.stringify(SP)); touch(SPK); } catch (e) {} };
 function mergeSpese(a, b) {
   a = a || {}; b = b || {}; const cat = [...new Set([...(a.cat || []), ...(b.cat || [])])];
   return { cat: cat.length ? cat : [...DEFCAT], bud: ((a.bud && a.bud.u) || '') >= ((b.bud && b.bud.u) || '') ? (a.bud || {}) : b.bud, ric: byId(a.ric, b.ric), mov: byId(a.mov, b.mov) };
 }
 const MERGERS = { mnx_sind: mergeSind, mnx_spese: mergeSpese };
+const BOLL = ['Elettricità', 'Gas', 'Acqua', 'Internet', 'Telefono', 'Rifiuti', 'Condominio', 'Altro'], UNI = { 'Elettricità': 'kWh', 'Gas': 'Smc', 'Acqua': 'm³' };
+const natHtml = x => `<div class="nf"><select data-f="n" aria-label="Tipo di spesa"><option value="">Spesa normale</option><option value="b"${x.n === 'b' ? ' selected' : ''}>Bolletta</option><option value="r"${x.n === 'r' ? ' selected' : ''}>Rata o finanziamento</option></select>` +
+  (x.n === 'b' ? `<select data-f="bt" aria-label="Tipo di bolletta"><option value=""></option>${BOLL.map(b => `<option${b === x.bt ? ' selected' : ''}>${b}</option>`).join('')}</select><input type="text" data-f="ge" placeholder="Gestore (es. Enel)" value="${esc(x.ge)}">${UNI[x.bt] ? `<input type="number" step="0.01" data-f="co" placeholder="Consumo in ${UNI[x.bt]}" value="${esc(x.co || '')}">` : ''}`
+  : x.n === 'r' ? `<input type="text" data-f="pe" placeholder="Per cosa (es. auto)" value="${esc(x.pe)}"><input type="text" data-f="ge" placeholder="Creditore" value="${esc(x.ge)}">` : '') + '</div>';
+function spCmp() {
+  const ms = []; for (let i = 5; i >= 0; i--) { const d = new Date(spy, spm - i, 1); ms.push(mkey(d.getFullYear(), d.getMonth())); }
+  const lab = k => cap(new Date(k + '-01T00:00').toLocaleDateString('it-IT', { month: 'short', year: '2-digit' })), cur = ms[5], prv = ms[4];
+  const nm = x => x.n === 'b' ? `${x.bt || 'Bolletta'}, ${x.ge || 'gestore n.d.'}` : `Rata${x.pe ? ' ' + x.pe : ''}, ${x.ge || 'creditore n.d.'}`, R = {};
+  SP.mov.filter(x => !x.del && x.n && ms.includes((x.d || '').slice(0, 7))).forEach(x => {
+    const k = nm(x), m = x.d.slice(0, 7), r = R[k] = R[k] || { v: {}, c: {}, bt: x.bt };
+    r.v[m] = (r.v[m] || 0) + (+x.imp || 0); if (+x.co) r.c[m] = (r.c[m] || 0) + (+x.co);
+  });
+  const keys = Object.keys(R).sort();
+  if (!keys.length) { $('spc').innerHTML = '<p class="hint">Classifica le spese come bolletta o rata (elettricità, gas, acqua, internet, rata…) con il gestore o il creditore: qui le confronti mese per mese.</p>'; return; }
+  const dl = (a, b) => (nz(a) && nz(b)) ? `<td class="${a > b ? 'up' : a < b ? 'down' : ''}">${a - b > 0 ? '+' : ''}${eur(a - b)}${b ? ` (${a - b >= 0 ? '+' : ''}${fmt((a - b) / b * 100)}%)` : ''}</td>` : '<td>—</td>';
+  const head = `<tr><th>Voce</th>${ms.map(m => `<th${m === cur ? ' class="cu"' : ''}>${lab(m)}</th>`).join('')}<th>Rispetto al mese prima</th></tr>`;
+  const body = keys.map(k => `<tr><td>${esc(k)}</td>${ms.map(m => `<td${m === cur ? ' class="cu"' : ''}>${nz(R[k].v[m]) ? eur(R[k].v[m]) : '—'}</td>`).join('')}${dl(R[k].v[cur], R[k].v[prv])}</tr>`).join('');
+  const T = m => keys.reduce((s, k) => s + (R[k].v[m] || 0), 0), tot = `<tr class="tt"><td>Totale</td>${ms.map(m => `<td${m === cur ? ' class="cu"' : ''}>${eur(T(m))}</td>`).join('')}${dl(T(cur), T(prv))}</tr>`;
+  const uk = keys.filter(k => UNI[R[k].bt] && Object.keys(R[k].c).length);
+  const un = uk.length ? `<h4>Costo per unità</h4><table class="cmp"><tr><th>Voce</th>${ms.map(m => `<th${m === cur ? ' class="cu"' : ''}>${lab(m)}</th>`).join('')}</tr>${uk.map(k => `<tr><td>${esc(k)}</td>${ms.map(m => `<td${m === cur ? ' class="cu"' : ''}>${R[k].c[m] && R[k].v[m] ? (R[k].v[m] / R[k].c[m]).toLocaleString('it-IT', { minimumFractionDigits: 3, maximumFractionDigits: 3 }) + ' €/' + UNI[R[k].bt] : '—'}</td>`).join('')}</tr>`).join('')}</table>` : '';
+  $('spc').innerHTML = `<div class="cmpw"><table class="cmp">${head}${body}${tot}</table></div>${un}`;
+}
+
 const mkey = (y, m) => `${y}-${String(m + 1).padStart(2, '0')}`, ssum = a => a.reduce((s, x) => s + (+x.imp || 0), 0);
 const movOf = k => SP.mov.filter(x => !x.del && (x.d || '').startsWith(k));
 function previste(y, m) {
@@ -933,7 +973,8 @@ const KWC = [[/benzin|carburant|gasolio|autostrad|parcheggi|treno|bus/, 'Traspor
   [/bolletta|luce|gas|acqua|internet|telefon/, 'Bollette'], [/affitto|mutuo|condomin/, 'Casa e affitto'], [/ristorante|pizza|cinema|bar|caff|aperitiv/, 'Tempo libero']];
 function addSpesaVoce(imp, desc) {
   loadSP(); desc = (desc || '').trim(); const cat = (KWC.find(([re]) => re.test(desc)) || [0, 'Altro'])[1];
-  SP.mov.push({ id: uid(), d: ymd(new Date()), imp, cat, t: desc, u: nowI() }); saveSP();
+  const BV = [[/luce|elettric/, 'Elettricità'], [/\bgas\b/, 'Gas'], [/acqua/, 'Acqua'], [/internet|fibra|wifi/, 'Internet'], [/telefon|cellulare/, 'Telefono']], bv = BV.find(([re]) => re.test(desc)), isB = bv || /bolletta/.test(desc);
+  SP.mov.push({ id: uid(), d: ymd(new Date()), imp, cat: isB ? 'Bollette' : cat, t: desc, n: isB ? 'b' : '', bt: bv ? bv[1] : '', u: nowI() }); saveSP();
   if ($('sps')) renderSpese(); say(`Registrata spesa di ${fmt(imp)} euro, categoria ${cat}.`);
 }
 function spSum() {
@@ -947,15 +988,16 @@ function spSum() {
      return `<div class="br"><span>${esc(c)}</span><div class="bb"><i class="${cl}" style="width:${s / mx * 100}%"></i>${b ? `<u style="left:${b / mx * 100}%"></u>` : ''}</div><b>${eur(s)}${b ? ' / ' + eur(b) : ''}</b></div>`; }).join('') || '<p class="hint">Nessuna spesa o budget per questo mese.</p>'}</div>`;
   const pv = previste(spy, spm);
   $('spp').innerHTML = pv.length ? `<h3>Previste (ricorrenti)</h3><div class="card">${pv.map(p => `<div class="mv pv"><span>${p.date.slice(8)}/${p.date.slice(5, 7)}</span><b>${esc(p.r.t)}</b><span>${eur(+p.r.imp || 0)}</span><button class="btn ghost" data-act="pay" data-id="${p.r.id}">Segna pagata</button></div>`).join('')}</div>` : '';
+  spCmp();
 }
 function spRows() {
   const mov = movOf(mkey(spy, spm)).sort((a, b) => b.d.localeCompare(a.d)), cats = [...new Set([...SP.cat, ...mov.map(x => x.cat)])];
-  $('spr').innerHTML = mov.map(x => `<div class="mv" data-m="${x.id}"><input type="date" data-f="d" value="${esc(x.d)}"><input type="number" step="0.01" data-f="imp" value="${esc(x.imp)}"><select data-f="cat">${cats.map(c => `<option${c === x.cat ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select><input type="text" data-f="t" placeholder="Descrizione" value="${esc(x.t)}"><button class="btn ghost" data-act="delmov" data-id="${x.id}" aria-label="Elimina">×</button></div>`).join('') || '<p class="hint">Nessun movimento in questo mese.</p>';
+  $('spr').innerHTML = mov.map(x => `<div class="mvw" data-m="${x.id}"><div class="mv"><input type="date" data-f="d" value="${esc(x.d)}"><input type="number" step="0.01" data-f="imp" value="${esc(x.imp)}"><select data-f="cat">${cats.map(c => `<option${c === x.cat ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select><input type="text" data-f="t" placeholder="Descrizione" value="${esc(x.t)}"><button class="btn ghost" data-act="delmov" data-id="${x.id}" aria-label="Elimina">×</button></div>${natHtml(x)}</div>`).join('') || '<p class="hint">Nessun movimento in questo mese.</p>';
 }
 function spSet() {
   const opt = (v) => SP.cat.map(c => `<option${c === v ? ' selected' : ''}>${esc(c)}</option>`).join('');
   $('spset').innerHTML = `<h4>Budget mensile</h4><div class="sg"><label>Totale €<input type="number" step="1" data-b="__tot" value="${esc(SP.bud.tot || '')}"></label>${SP.cat.map(c => `<label>${esc(c)} €<input type="number" step="1" data-b="${esc(c)}" value="${esc(SP.bud.c[c] || '')}"></label>`).join('')}</div>
-    <h4>Spese ricorrenti</h4>${SP.ric.filter(r => !r.del).map(r => `<div class="mv rc" data-r="${r.id}"><input type="text" data-f="t" placeholder="Nome (es. Affitto)" value="${esc(r.t)}"><input type="number" step="0.01" data-f="imp" placeholder="€" value="${esc(r.imp)}"><select data-f="cat">${opt(r.cat)}</select><input type="number" min="1" max="31" data-f="g" placeholder="giorno" value="${esc(r.g)}"><input type="month" data-f="da" value="${esc(r.da)}"><label class="chk"><input type="checkbox" data-f="att"${r.att !== false ? ' checked' : ''}>attiva</label><button class="btn ghost" data-act="delric" data-id="${r.id}" aria-label="Elimina">×</button></div>`).join('') || '<p class="hint">Nessuna spesa ricorrente.</p>'}
+    <h4>Spese ricorrenti</h4>${SP.ric.filter(r => !r.del).map(r => `<div class="mvw" data-r="${r.id}"><div class="mv rc"><input type="text" data-f="t" placeholder="Nome (es. Affitto)" value="${esc(r.t)}"><input type="number" step="0.01" data-f="imp" placeholder="€" value="${esc(r.imp)}"><select data-f="cat">${opt(r.cat)}</select><input type="number" min="1" max="31" data-f="g" placeholder="giorno" value="${esc(r.g)}"><input type="month" data-f="da" value="${esc(r.da)}"><label class="chk"><input type="checkbox" data-f="att"${r.att !== false ? ' checked' : ''}>attiva</label><button class="btn ghost" data-act="delric" data-id="${r.id}" aria-label="Elimina">×</button></div>${natHtml(r)}</div>`).join('') || '<p class="hint">Nessuna spesa ricorrente.</p>'}
     <div class="ob"><button class="btn ghost" data-act="addric">Aggiungi spesa ricorrente</button></div>
     <h4>Categorie</h4><div class="ob"><input type="text" id="nc" placeholder="Nuova categoria" style="max-width:240px"><button class="btn ghost" data-act="addcat">Aggiungi categoria</button></div>`;
 }
@@ -963,25 +1005,32 @@ function renderSpese() {
   loadSP(); const mk = mkey(spy, spm), tdy = ymd(new Date());
   $('view').innerHTML = `<div class="sw"><div class="ch"><button data-act="mo" data-o="-1" aria-label="Mese precedente">‹</button><b>${cap(new Date(spy, spm, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }))}</b><button data-act="mo" data-o="1" aria-label="Mese successivo">›</button></div>
     <div id="sps"></div>
-    <h3>Nuova spesa</h3><div class="card"><div class="sg"><label>Importo €<input type="number" step="0.01" id="sa-i"></label><label>Categoria<select id="sa-c">${SP.cat.map(c => `<option>${esc(c)}</option>`).join('')}</select></label><label>Descrizione<input type="text" id="sa-t"></label><label>Data<input type="date" id="sa-d" value="${mk === tdy.slice(0, 7) ? tdy : mk + '-01'}"></label></div>
+    <h3>Nuova spesa</h3><div class="card"><div class="sg"><label>Importo €<input type="number" step="0.01" id="sa-i"></label><label>Categoria<select id="sa-c">${SP.cat.map(c => `<option>${esc(c)}</option>`).join('')}</select></label><label>Descrizione<input type="text" id="sa-t"></label><label>Data<input type="date" id="sa-d" value="${mk === tdy.slice(0, 7) ? tdy : mk + '-01'}"></label></div><div class="sg"><label>Tipo di spesa<select id="sa-n"><option value="">Spesa normale</option><option value="b">Bolletta</option><option value="r">Rata o finanziamento</option></select></label></div><div class="sg" id="sa-x"></div>
       <div class="ob"><button class="btn" data-act="addmov">Aggiungi spesa</button><button class="btn ghost" data-act="csv">Esporta CSV del mese</button></div></div>
-    <div id="spp"></div><h3>Movimenti del mese</h3><div class="card" id="spr"></div>
+    <div id="spp"></div><h3>Confronto bollette e rate</h3><div class="card" id="spc"></div><h3>Movimenti del mese</h3><div class="card" id="spr"></div>
     <details class="card"><summary><b>Budget, spese ricorrenti e categorie</b></summary><div id="spset"></div></details></div>`;
   spSum(); spRows(); spSet();
   const v = $('view'), t = nowI();
   v.onchange = e => {
     const el = e.target, f = el.dataset.f, row = el.closest('[data-m],[data-r]'), val = el.type === 'checkbox' ? el.checked : el.value;
+    if (el.id === 'sa-n') {
+      $('sa-x').innerHTML = el.value === 'b' ? `<label>Tipo di bolletta<select id="sa-bt"><option></option>${BOLL.map(b => `<option>${b}</option>`).join('')}</select></label><label>Gestore<input type="text" id="sa-ge" placeholder="es. Enel"></label><label>Consumo (kWh, Smc o m³, se lo sai)<input type="number" step="0.01" id="sa-co"></label>`
+        : el.value === 'r' ? `<label>Per cosa<input type="text" id="sa-pe" placeholder="es. auto"></label><label>Creditore<input type="text" id="sa-ge" placeholder="es. banca o finanziaria"></label>` : '';
+      if (el.value) $('sa-c').value = el.value === 'b' ? 'Bollette' : 'Rate e finanziamenti'; return;
+    }
     if (el.dataset.b !== undefined) { const b = SP.bud; b.u = nowI(); if (el.dataset.b === '__tot') b.tot = parseFloat(val) || 0; else b.c[el.dataset.b] = parseFloat(val) || 0; saveSP(); return spSum(); }
     if (!f || !row) return;
     const it = row.dataset.m ? SP.mov.find(x => x.id === row.dataset.m) : SP.ric.find(x => x.id === row.dataset.r);
-    it[f] = ['imp', 'g'].includes(f) ? parseFloat(val) || 0 : val; it.u = nowI(); saveSP(); spSum();
+    it[f] = ['imp', 'g', 'co'].includes(f) ? parseFloat(val) || 0 : val; it.u = nowI();
+    if (f === 'n' && val) { it.cat = val === 'b' ? 'Bollette' : 'Rate e finanziamenti'; if (!SP.cat.includes(it.cat)) SP.cat.push(it.cat); }
+    saveSP(); if (f === 'n' || f === 'bt') { if (row.dataset.m) spRows(); else spSet(); } spSum();
   };
   v.onclick = e => {
     const b = e.target.closest('[data-act]'); if (!b) return; const d = b.dataset, n = nowI();
     if (d.act === 'mo') { const x = new Date(spy, spm + +d.o, 1); spy = x.getFullYear(); spm = x.getMonth(); return renderSpese(); }
-    if (d.act === 'addmov') { const i = parseFloat($('sa-i').value); if (!(i > 0)) return say('Inserisci un importo.'); SP.mov.push({ id: uid(), d: $('sa-d').value || tdy, imp: i, cat: $('sa-c').value, t: $('sa-t').value.trim(), u: n }); }
+    if (d.act === 'addmov') { const i = parseFloat($('sa-i').value); if (!(i > 0)) return say('Inserisci un importo.'); const g = id => $(id) ? $(id).value.trim() : ''; SP.mov.push({ id: uid(), d: $('sa-d').value || tdy, imp: i, cat: $('sa-c').value, t: $('sa-t').value.trim(), n: $('sa-n').value, bt: g('sa-bt'), ge: g('sa-ge'), pe: g('sa-pe'), co: parseFloat(g('sa-co')) || 0, u: n }); }
     if (d.act === 'delmov') { const m = SP.mov.find(x => x.id === d.id); m.del = true; m.u = n; }
-    if (d.act === 'pay') { const p = previste(spy, spm).find(x => x.r.id === d.id); if (!p) return; SP.mov.push({ id: uid(), d: p.date > tdy ? tdy : p.date, imp: +p.r.imp || 0, cat: p.r.cat, t: p.r.t, r: p.r.id + '@' + p.mk, u: n }); }
+    if (d.act === 'pay') { const p = previste(spy, spm).find(x => x.r.id === d.id); if (!p) return; SP.mov.push({ id: uid(), d: p.date > tdy ? tdy : p.date, imp: +p.r.imp || 0, cat: p.r.cat, t: p.r.t, r: p.r.id + '@' + p.mk, n: p.r.n, bt: p.r.bt, ge: p.r.ge, pe: p.r.pe, u: n }); }
     if (d.act === 'addric') SP.ric.push({ id: uid(), t: '', imp: 0, cat: SP.cat[0], g: 1, da: tdy.slice(0, 7), att: true, u: n });
     if (d.act === 'delric') { const r = SP.ric.find(x => x.id === d.id); r.del = true; r.u = n; }
     if (d.act === 'addcat') { const c = $('nc').value.trim(); if (!c || SP.cat.includes(c)) return; SP.cat.push(c); }
@@ -991,8 +1040,8 @@ function renderSpese() {
 }
 function spCsv() {
   const mk = mkey(spy, spm), q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
-  const rows = movOf(mk).sort((a, b) => a.d.localeCompare(b.d)).map(x => [x.d, q(x.t), q(x.cat), String(x.imp).replace('.', ',')].join(';'));
-  const blob = new Blob(['\ufeff' + ['Data;Descrizione;Categoria;Importo', ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
+  const rows = movOf(mk).sort((a, b) => a.d.localeCompare(b.d)).map(x => [x.d, q(x.t), q(x.cat), String(x.imp).replace('.', ','), q(x.n === 'b' ? 'Bolletta' : x.n === 'r' ? 'Rata' : ''), q(x.bt), q(x.ge), q(x.pe), String(x.co || '').replace('.', ',')].join(';'));
+  const blob = new Blob(['\ufeff' + ['Data;Descrizione;Categoria;Importo;Tipo;Tipo bolletta;Gestore o creditore;Per cosa;Consumo', ...rows].join('\r\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Mnemonyx-spese-${mk}.csv`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 function initSpese() { const n = new Date(); if (!spy) { spy = n.getFullYear(); spm = n.getMonth(); } renderSpese(); }
