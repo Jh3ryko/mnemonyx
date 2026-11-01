@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.13.0 (31/10/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto
+  Versione 0.13.1 (31/10/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -270,7 +270,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.13.0', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.13.1', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -835,28 +835,46 @@ function mergeSind(a, b) {
   const pr = byId(a.pr, b.pr).map(p => ({ ...p, dia: byId((((a.pr || []).find(x => x.id === p.id)) || {}).dia, (((b.pr || []).find(x => x.id === p.id)) || {}).dia) }));
   return { sig: ((a.sig && a.sig.u) || '') >= ((b.sig && b.sig.u) || '') ? (a.sig || {}) : b.sig, ref: byId(a.ref, b.ref), pr };
 }
-const sha = async t => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map(b => b.toString(16).padStart(2, '0')).join('');
+function sha256js(m) {
+  const R = (n, x) => (x >>> n) | (x << (32 - n)), K = [], H = [], isP = n => { for (let i = 2; i * i <= n; i++) if (n % i === 0) return false; return true; }, fr = x => ((x - Math.floor(x)) * 4294967296) | 0;
+  for (let c = 2, k = 0; k < 64; c++) if (isP(c)) { if (k < 8) H[k] = fr(Math.pow(c, 1 / 2)); K[k++] = fr(Math.pow(c, 1 / 3)); }
+  const b = unescape(encodeURIComponent(m)), n = b.length, w = [];
+  for (let i = 0; i < n; i++) w[i >> 2] |= b.charCodeAt(i) << (24 - (i % 4) * 8);
+  w[n >> 2] |= 0x80 << (24 - (n % 4) * 8);
+  const L = (((n + 8) >> 6) + 1) << 4; for (let i = 0; i < L; i++) w[i] = w[i] | 0;
+  w[L - 1] = n * 8;
+  for (let j = 0; j < L; j += 16) {
+    const W = w.slice(j, j + 16), h = H.slice(0);
+    for (let i = 0; i < 64; i++) {
+      if (i >= 16) { const a = W[i - 15], c = W[i - 2]; W[i] = (W[i - 16] + (R(7, a) ^ R(18, a) ^ (a >>> 3)) + W[i - 7] + (R(17, c) ^ R(19, c) ^ (c >>> 10))) | 0; }
+      const e = h[4], a2 = h[0], t1 = (h[7] + (R(6, e) ^ R(11, e) ^ R(25, e)) + ((e & h[5]) ^ (~e & h[6])) + K[i] + W[i]) | 0, t2 = ((R(2, a2) ^ R(13, a2) ^ R(22, a2)) + ((a2 & h[1]) ^ (a2 & h[2]) ^ (h[1] & h[2]))) | 0;
+      h.pop(); h.unshift((t1 + t2) | 0); h[4] = (h[4] + t1) | 0;
+    }
+    for (let i = 0; i < 8; i++) H[i] = (H[i] + h[i]) | 0;
+  }
+  return H.map(x => (x >>> 0).toString(16).padStart(8, '0')).join('');
+}
+const sha = async t => (window.crypto && crypto.subtle) ? [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map(b => b.toString(16).padStart(2, '0')).join('') : sha256js(t);
 function sindLock() {
   let p = {}; try { p = JSON.parse(localStorage.getItem(PINK) || '{}'); } catch (e) {}
   const has = !!p.h;
   $('view').onclick = null; $('view').onchange = null;
   $('view').innerHTML = `<div class="card big"><h1>Sindacato</h1><p>${has ? 'Sezione riservata: inserisci il PIN.' : 'Sezione riservata: scegli un PIN di almeno 4 cifre.'}</p>
-    <form id="pf"><label>PIN<input id="pin" type="password" inputmode="numeric" autocomplete="${has ? 'current-password' : 'new-password'}"></label>
-    ${has ? '' : '<label>Ripeti il PIN<input id="pin2" type="password" inputmode="numeric" autocomplete="new-password"></label>'}
+    <form id="pf"><label>PIN<input id="pin" type="password" inputmode="numeric" autocomplete="one-time-code"></label>
+    ${has ? '' : '<label>Ripeti il PIN<input id="pin2" type="password" inputmode="numeric" autocomplete="one-time-code"></label>'}
     <div class="ob"><button class="btn" id="pgo" type="submit">${has ? 'Sblocca' : 'Imposta PIN'}</button></div></form><p class="warn" id="perr" role="alert"></p>
-    <small class="hint">Il PIN protegge la sezione sullo schermo. Se lo dimentichi puoi reimpostarlo da Impostazioni.</small></div>`;
+    <small class="hint">Il PIN protegge la sezione sullo schermo. Se lo dimentichi puoi reimpostarlo da Impostazioni. (Mnemonyx versione ${VERSION})</small></div>`;
   $('pf').onsubmit = async e => {
-    e.preventDefault(); const er = t => { $('perr').textContent = t; }; er('');
+    e.preventDefault(); const er = t => { $('perr').textContent = t; }; er(has ? 'Controllo il PIN…' : 'Salvo il PIN…');
     try {
       const v = $('pin').value;
-      if (!(window.crypto && crypto.subtle)) return er('Questo browser non permette di usare il PIN: serve una connessione sicura (HTTPS).');
       if (has) { if (await sha(p.s + v) !== p.h) return er('PIN errato.'); }
       else {
         if (!/^\d{4,}$/.test(v)) return er('Il PIN deve avere almeno 4 cifre, solo numeri.');
         if (v !== $('pin2').value) return er('I due PIN non coincidono.');
         const s = uid(); localStorage.setItem(PINK, JSON.stringify({ s, h: await sha(s + v) })); touch(PINK);
       }
-      unlocked = Date.now(); initSind();
+      unlocked = Date.now(); er(''); initSind();
     } catch (err) { er('Non sono riuscito a completare l’operazione: ' + ((err && err.message) || err)); }
   };
   $('pin').focus();
