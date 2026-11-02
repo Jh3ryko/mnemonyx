@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.16.0 (1/11/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico | 0.16.0 foto degli scontrini allegate alle spese
+  Versione 0.16.1 (1/11/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico | 0.16.0 foto degli scontrini allegate alle spese | 0.16.1 pulsante diretto Scatta foto
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -283,7 +283,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.16.0', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.16.1', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -1044,7 +1044,7 @@ function renderSpese() {
   loadSP(); const mk = mkey(spy, spm), tdy = ymd(new Date());
   $('view').innerHTML = `<div class="sw"><div class="ch"><button data-act="mo" data-o="-1" aria-label="Mese precedente">‹</button><b>${cap(new Date(spy, spm, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }))}</b><button data-act="mo" data-o="1" aria-label="Mese successivo">›</button></div>
     <div id="sps"></div>
-    <h3>Nuova spesa</h3><div class="card"><div class="sg"><label>Importo €<input type="number" step="0.01" id="sa-i"></label><label>Categoria<select id="sa-c">${SP.cat.map(c => `<option>${esc(c)}</option>`).join('')}</select></label><label>Descrizione<input type="text" id="sa-t"></label><label>Data<input type="date" id="sa-d" value="${mk === tdy.slice(0, 7) ? tdy : mk + '-01'}"></label></div><div class="sg"><label>Tipo di spesa<select id="sa-n"><option value="">Spesa normale</option><option value="b">Bolletta</option><option value="r">Rata o finanziamento</option></select></label></div><div class="sg" id="sa-x"></div><div class="sg"><label>Foto dello scontrino (facoltativa)<input type="file" id="sa-f" accept="image/*" multiple></label></div>
+    <h3>Nuova spesa</h3><div class="card"><div class="sg"><label>Importo €<input type="number" step="0.01" id="sa-i"></label><label>Categoria<select id="sa-c">${SP.cat.map(c => `<option>${esc(c)}</option>`).join('')}</select></label><label>Descrizione<input type="text" id="sa-t"></label><label>Data<input type="date" id="sa-d" value="${mk === tdy.slice(0, 7) ? tdy : mk + '-01'}"></label></div><div class="sg"><label>Tipo di spesa<select id="sa-n"><option value="">Spesa normale</option><option value="b">Bolletta</option><option value="r">Rata o finanziamento</option></select></label></div><div class="sg" id="sa-x"></div><div class="ob"><label class="btn ghost fl">Scatta foto<input type="file" id="sa-f2" accept="image/*" capture="environment" hidden></label><label class="btn ghost fl">Dalla galleria<input type="file" id="sa-f" accept="image/*" multiple hidden></label><small id="sa-fn"></small></div>
       <div class="ob"><button class="btn" data-act="addmov">Aggiungi spesa</button><button class="btn ghost" data-act="csv">Esporta CSV del mese</button></div></div>
     <div id="spp"></div><h3>Confronto bollette e rate</h3><div class="card" id="spc"></div><h3>Movimenti del mese</h3><div class="card" id="spr"></div>
     <details class="card"><summary><b>Budget, spese ricorrenti e categorie</b></summary><div id="spset"></div></details></div>`;
@@ -1052,6 +1052,7 @@ function renderSpese() {
   const v = $('view'), t = nowI();
   v.onchange = e => {
     const el = e.target, f = el.dataset.f, row = el.closest('[data-m],[data-r]'), val = el.type === 'checkbox' ? el.checked : el.value;
+    if (el.id === 'sa-f' || el.id === 'sa-f2') { const k = ($('sa-f').files.length || 0) + ($('sa-f2').files.length || 0); $('sa-fn').textContent = k ? `${k} ${k > 1 ? 'foto pronte' : 'foto pronta'}: verrà allegata quando premi «Aggiungi spesa».` : ''; return; }
     if (el.dataset.ph) { const fl = [...el.files]; el.value = ''; if (fl.length) addFoto(fl, el.dataset.ph); return; }
     if (el.id === 'sa-n') {
       $('sa-x').innerHTML = el.value === 'b' ? `<label>Tipo di bolletta<select id="sa-bt"><option></option>${BOLL.map(b => `<option>${b}</option>`).join('')}</select></label><label>Gestore<input type="text" id="sa-ge" placeholder="es. Enel"></label><label>Consumo (kWh, Smc o m³, se lo sai)<input type="number" step="0.01" id="sa-co"></label>`
@@ -1068,7 +1069,7 @@ function renderSpese() {
   v.onclick = e => {
     const b = e.target.closest('[data-act]'); if (!b) return; const d = b.dataset, n = nowI();
     if (d.act === 'mo') { const x = new Date(spy, spm + +d.o, 1); spy = x.getFullYear(); spm = x.getMonth(); return renderSpese(); }
-    if (d.act === 'addmov') { const i = parseFloat($('sa-i').value); if (!(i > 0)) return say('Inserisci un importo.'); const g = id => $(id) ? $(id).value.trim() : '', nid = uid(), fl = [...(($('sa-f') || {}).files || [])]; NF = fl.length ? { id: nid, files: fl } : null; SP.mov.push({ id: nid, d: $('sa-d').value || tdy, imp: i, cat: $('sa-c').value, t: $('sa-t').value.trim(), n: $('sa-n').value, bt: g('sa-bt'), ge: g('sa-ge'), pe: g('sa-pe'), co: parseFloat(g('sa-co')) || 0, u: n }); }
+    if (d.act === 'addmov') { const i = parseFloat($('sa-i').value); if (!(i > 0)) return say('Inserisci un importo.'); const g = id => $(id) ? $(id).value.trim() : '', nid = uid(), fl = [...(($('sa-f') || {}).files || []), ...(($('sa-f2') || {}).files || [])]; NF = fl.length ? { id: nid, files: fl } : null; SP.mov.push({ id: nid, d: $('sa-d').value || tdy, imp: i, cat: $('sa-c').value, t: $('sa-t').value.trim(), n: $('sa-n').value, bt: g('sa-bt'), ge: g('sa-ge'), pe: g('sa-pe'), co: parseFloat(g('sa-co')) || 0, u: n }); }
     if (d.act === 'delmov') { const m = SP.mov.find(x => x.id === d.id); m.del = true; m.u = n; }
     if (d.act === 'pay') { const p = previste(spy, spm).find(x => x.r.id === d.id); if (!p) return; SP.mov.push({ id: uid(), d: p.date > tdy ? tdy : p.date, imp: +p.r.imp || 0, cat: p.r.cat, t: p.r.t, r: p.r.id + '@' + p.mk, n: p.r.n, bt: p.r.bt, ge: p.r.ge, pe: p.r.pe, u: n }); }
     if (d.act === 'addric') SP.ric.push({ id: uid(), t: '', imp: 0, cat: SP.cat[0], g: 1, da: tdy.slice(0, 7), att: true, u: n });
@@ -1342,7 +1343,7 @@ async function showFoto(id) {
     } catch (e) { w.innerHTML = '<p class="warn">Non riesco a caricare la foto: sei offline, oppure la cartella su Supabase non è configurata.</p>'; }
   }
 }
-const fotoHtml = x => `<div class="nf"><label class="btn ghost fl">Allega foto<input type="file" accept="image/*" multiple data-ph="${x.id}" hidden></label>${(x.ft || []).length ? `<button class="btn ghost" data-act="vedifoto" data-id="${x.id}">Vedi foto (${x.ft.length})</button>` : ''}</div>`;
+const fotoHtml = x => `<div class="nf"><label class="btn ghost fl">Scatta foto<input type="file" accept="image/*" capture="environment" data-ph="${x.id}" hidden></label><label class="btn ghost fl">Dalla galleria<input type="file" accept="image/*" multiple data-ph="${x.id}" hidden></label>${(x.ft || []).length ? `<button class="btn ghost" data-act="vedifoto" data-id="${x.id}">Vedi foto (${x.ft.length})</button>` : ''}</div>`;
 addEventListener('online', () => flushUp());
 
 /* ---------- Voce ---------- */
