@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.15.0 (1/11/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico
+  Versione 0.16.0 (1/11/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico | 0.16.0 foto degli scontrini allegate alle spese
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -196,6 +196,11 @@ table.cmp{width:100%;border-collapse:collapse}
 
 .chip.c-n{color:var(--muted)}
 
+.lb{position:fixed;inset:0;background:#000e;z-index:50;overflow:auto;padding:16px}
+.lb img{max-width:100%;display:block;margin:12px auto;border-radius:8px}
+.lbw{max-width:760px;margin:0 auto 24px}
+label.fl{cursor:pointer}
+
 @media(min-width:769px){
  body.collapsed #side{width:var(--sc)}
  body.collapsed .lbl,body.collapsed .sh .lg{display:none}
@@ -278,7 +283,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.15.0', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.16.0', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -456,7 +461,7 @@ function enter(email) {
   $('login').hidden = true; $('app').hidden = false; $('usr').textContent = email;
   if (!built) { build(); built = true; setCol(isDesk() ? localStorage.getItem('mnx_col') === '1' : true); }
   go('dash'); arm();
-  if (TOK) { syncUI('wa', 'Sincronizzazione in corso'); pull().then(() => { if (curView() !== 'sind') go(curView()); }); } else syncUI('ok', '');
+  if (TOK) { syncUI('wa', 'Sincronizzazione in corso'); pull().then(() => { if (curView() !== 'sind') go(curView()); flushUp(); }); } else syncUI('ok', '');
 }
 function setCol(c) {
   document.body.classList.toggle('collapsed', c);
@@ -603,6 +608,7 @@ const settings = () => `<div class="card big"><h1>Impostazioni</h1>
   </fieldset>
   <fieldset class="st"><legend>Dati e backup</legend>
     <small id="bkd">${bkInfo()}</small>
+    <small id="upq"></small>
     <div class="ob"><button class="btn" id="bkx">Esporta backup</button><button class="btn ghost" id="bki">Importa backup</button><input type="file" id="bkf" accept=".json,application/json" hidden></div>
     <small>I dati sono salvati solo in questo browser: esporta un backup dopo gli inserimenti importanti e conservalo in un posto sicuro.</small>
   </fieldset>
@@ -618,7 +624,7 @@ function initSettings() {
   $('inst').hidden = !ip || sa;
   $('inst').onclick = async () => { ip.prompt(); try { await ip.userChoice; } catch (e) {} ip = null; $('inst').hidden = true; };
   $('pinr').onclick = () => { if (confirm('Reimpostare il PIN?')) { localStorage.setItem(PINK, '{}'); touch(PINK); say('PIN reimpostato.'); } };
-  $('bkx').onclick = exportBk; $('bki').onclick = () => $('bkf').click();
+  upStat(); $('bkx').onclick = exportBk; $('bki').onclick = () => $('bkf').click();
   $('bkf').onchange = () => { if ($('bkf').files[0]) importBk($('bkf').files[0]); $('bkf').value = ''; };
   document.querySelectorAll('input[name=tk]').forEach(r => { r.checked = r.value === cur; r.onchange = () => setTk(r.value); });
 }
@@ -963,7 +969,7 @@ function dossier(id) {
 /* ---------- Spese domestiche ---------- */
 const SPK = 'mnx_spese';
 const DEFCAT = ['Casa e affitto', 'Bollette', 'Rate e finanziamenti', 'Alimentari', 'Trasporti e carburante', 'Salute e farmacia', 'Abbonamenti', 'Tempo libero', 'Abbigliamento', 'Altro'];
-let SP = null, spy = 0, spm = 0;
+let SP = null, spy = 0, spm = 0, NF = null;
 const spNew = () => ({ cat: [...DEFCAT], bud: { tot: 0, c: {}, u: '' }, ric: [], mov: [] });
 const loadSP = () => { try { SP = { ...spNew(), ...JSON.parse(localStorage.getItem(SPK) || '{}') }; } catch (e) { SP = spNew(); } SP.bud = { tot: 0, c: {}, ...SP.bud }; if (!SP.cat.includes('Rate e finanziamenti')) SP.cat.splice(Math.min(2, SP.cat.length), 0, 'Rate e finanziamenti'); };
 const saveSP = () => { try { localStorage.setItem(SPK, JSON.stringify(SP)); touch(SPK); } catch (e) {} };
@@ -1025,7 +1031,7 @@ function spSum() {
 }
 function spRows() {
   const mov = movOf(mkey(spy, spm)).sort((a, b) => b.d.localeCompare(a.d)), cats = [...new Set([...SP.cat, ...mov.map(x => x.cat)])];
-  $('spr').innerHTML = mov.map(x => `<div class="mvw" data-m="${x.id}"><div class="mv"><input type="date" data-f="d" value="${esc(x.d)}"><input type="number" step="0.01" data-f="imp" value="${esc(x.imp)}"><select data-f="cat">${cats.map(c => `<option${c === x.cat ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select><input type="text" data-f="t" placeholder="Descrizione" value="${esc(x.t)}"><button class="btn ghost" data-act="delmov" data-id="${x.id}" aria-label="Elimina">×</button></div>${natHtml(x)}</div>`).join('') || '<p class="hint">Nessun movimento in questo mese.</p>';
+  $('spr').innerHTML = mov.map(x => `<div class="mvw" data-m="${x.id}"><div class="mv"><input type="date" data-f="d" value="${esc(x.d)}"><input type="number" step="0.01" data-f="imp" value="${esc(x.imp)}"><select data-f="cat">${cats.map(c => `<option${c === x.cat ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select><input type="text" data-f="t" placeholder="Descrizione" value="${esc(x.t)}"><button class="btn ghost" data-act="delmov" data-id="${x.id}" aria-label="Elimina">×</button></div>${natHtml(x)}${fotoHtml(x)}</div>`).join('') || '<p class="hint">Nessun movimento in questo mese.</p>';
 }
 function spSet() {
   const opt = (v) => SP.cat.map(c => `<option${c === v ? ' selected' : ''}>${esc(c)}</option>`).join('');
@@ -1038,7 +1044,7 @@ function renderSpese() {
   loadSP(); const mk = mkey(spy, spm), tdy = ymd(new Date());
   $('view').innerHTML = `<div class="sw"><div class="ch"><button data-act="mo" data-o="-1" aria-label="Mese precedente">‹</button><b>${cap(new Date(spy, spm, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }))}</b><button data-act="mo" data-o="1" aria-label="Mese successivo">›</button></div>
     <div id="sps"></div>
-    <h3>Nuova spesa</h3><div class="card"><div class="sg"><label>Importo €<input type="number" step="0.01" id="sa-i"></label><label>Categoria<select id="sa-c">${SP.cat.map(c => `<option>${esc(c)}</option>`).join('')}</select></label><label>Descrizione<input type="text" id="sa-t"></label><label>Data<input type="date" id="sa-d" value="${mk === tdy.slice(0, 7) ? tdy : mk + '-01'}"></label></div><div class="sg"><label>Tipo di spesa<select id="sa-n"><option value="">Spesa normale</option><option value="b">Bolletta</option><option value="r">Rata o finanziamento</option></select></label></div><div class="sg" id="sa-x"></div>
+    <h3>Nuova spesa</h3><div class="card"><div class="sg"><label>Importo €<input type="number" step="0.01" id="sa-i"></label><label>Categoria<select id="sa-c">${SP.cat.map(c => `<option>${esc(c)}</option>`).join('')}</select></label><label>Descrizione<input type="text" id="sa-t"></label><label>Data<input type="date" id="sa-d" value="${mk === tdy.slice(0, 7) ? tdy : mk + '-01'}"></label></div><div class="sg"><label>Tipo di spesa<select id="sa-n"><option value="">Spesa normale</option><option value="b">Bolletta</option><option value="r">Rata o finanziamento</option></select></label></div><div class="sg" id="sa-x"></div><div class="sg"><label>Foto dello scontrino (facoltativa)<input type="file" id="sa-f" accept="image/*" multiple></label></div>
       <div class="ob"><button class="btn" data-act="addmov">Aggiungi spesa</button><button class="btn ghost" data-act="csv">Esporta CSV del mese</button></div></div>
     <div id="spp"></div><h3>Confronto bollette e rate</h3><div class="card" id="spc"></div><h3>Movimenti del mese</h3><div class="card" id="spr"></div>
     <details class="card"><summary><b>Budget, spese ricorrenti e categorie</b></summary><div id="spset"></div></details></div>`;
@@ -1046,6 +1052,7 @@ function renderSpese() {
   const v = $('view'), t = nowI();
   v.onchange = e => {
     const el = e.target, f = el.dataset.f, row = el.closest('[data-m],[data-r]'), val = el.type === 'checkbox' ? el.checked : el.value;
+    if (el.dataset.ph) { const fl = [...el.files]; el.value = ''; if (fl.length) addFoto(fl, el.dataset.ph); return; }
     if (el.id === 'sa-n') {
       $('sa-x').innerHTML = el.value === 'b' ? `<label>Tipo di bolletta<select id="sa-bt"><option></option>${BOLL.map(b => `<option>${b}</option>`).join('')}</select></label><label>Gestore<input type="text" id="sa-ge" placeholder="es. Enel"></label><label>Consumo (kWh, Smc o m³, se lo sai)<input type="number" step="0.01" id="sa-co"></label>`
         : el.value === 'r' ? `<label>Per cosa<input type="text" id="sa-pe" placeholder="es. auto"></label><label>Creditore<input type="text" id="sa-ge" placeholder="es. banca o finanziaria"></label>` : '';
@@ -1061,14 +1068,15 @@ function renderSpese() {
   v.onclick = e => {
     const b = e.target.closest('[data-act]'); if (!b) return; const d = b.dataset, n = nowI();
     if (d.act === 'mo') { const x = new Date(spy, spm + +d.o, 1); spy = x.getFullYear(); spm = x.getMonth(); return renderSpese(); }
-    if (d.act === 'addmov') { const i = parseFloat($('sa-i').value); if (!(i > 0)) return say('Inserisci un importo.'); const g = id => $(id) ? $(id).value.trim() : ''; SP.mov.push({ id: uid(), d: $('sa-d').value || tdy, imp: i, cat: $('sa-c').value, t: $('sa-t').value.trim(), n: $('sa-n').value, bt: g('sa-bt'), ge: g('sa-ge'), pe: g('sa-pe'), co: parseFloat(g('sa-co')) || 0, u: n }); }
+    if (d.act === 'addmov') { const i = parseFloat($('sa-i').value); if (!(i > 0)) return say('Inserisci un importo.'); const g = id => $(id) ? $(id).value.trim() : '', nid = uid(), fl = [...(($('sa-f') || {}).files || [])]; NF = fl.length ? { id: nid, files: fl } : null; SP.mov.push({ id: nid, d: $('sa-d').value || tdy, imp: i, cat: $('sa-c').value, t: $('sa-t').value.trim(), n: $('sa-n').value, bt: g('sa-bt'), ge: g('sa-ge'), pe: g('sa-pe'), co: parseFloat(g('sa-co')) || 0, u: n }); }
     if (d.act === 'delmov') { const m = SP.mov.find(x => x.id === d.id); m.del = true; m.u = n; }
     if (d.act === 'pay') { const p = previste(spy, spm).find(x => x.r.id === d.id); if (!p) return; SP.mov.push({ id: uid(), d: p.date > tdy ? tdy : p.date, imp: +p.r.imp || 0, cat: p.r.cat, t: p.r.t, r: p.r.id + '@' + p.mk, n: p.r.n, bt: p.r.bt, ge: p.r.ge, pe: p.r.pe, u: n }); }
     if (d.act === 'addric') SP.ric.push({ id: uid(), t: '', imp: 0, cat: SP.cat[0], g: 1, da: tdy.slice(0, 7), att: true, u: n });
     if (d.act === 'delric') { const r = SP.ric.find(x => x.id === d.id); r.del = true; r.u = n; }
     if (d.act === 'addcat') { const c = $('nc').value.trim(); if (!c || SP.cat.includes(c)) return; SP.cat.push(c); }
+    if (d.act === 'vedifoto') return showFoto(d.id);
     if (d.act === 'csv') return spCsv();
-    saveSP(); renderSpese();
+    saveSP(); renderSpese(); if (NF) { const x = NF; NF = null; addFoto(x.files, x.id); }
   };
 }
 function spCsv() {
@@ -1272,6 +1280,70 @@ function schedaMedico(id) {
     <p class="hint">Riepilogo compilato dall'interessato: non sostituisce la documentazione clinica. ${COPY}.</p></div>`;
   $('dback').onclick = () => go('salute'); $('dprint').onclick = () => window.print();
 }
+
+/* ---------- Foto degli scontrini (Supabase Storage, cartella privata) ---------- */
+const BUCKET = 'allegati', FURL = new Map();
+let flushing = false;
+const uidTok = () => { try { return JSON.parse(atob(TOK.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).sub || ''; } catch (e) { return ''; } };
+async function shrink(file) {
+  let bmp; try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { bmp = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = URL.createObjectURL(file); }); }
+  const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height)), c = document.createElement('canvas'); c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+  return new Promise(ok => c.toBlob(b => ok(b), 'image/jpeg', 0.8));
+}
+const idbOpen = () => new Promise((ok, ko) => { const r = indexedDB.open('mnx', 1); r.onupgradeneeded = () => r.result.createObjectStore('up', { keyPath: 'path' }); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); });
+const idbDo = async (mode, fn) => { const db = await idbOpen(); return new Promise((ok, ko) => { const t = db.transaction('up', mode), q = fn(t.objectStore('up')); t.oncomplete = () => ok(q && q.result); t.onerror = () => ko(t.error); }); };
+async function stFetch(method, path, body, type, retry = true) {
+  const r = await fetch(`${CFG.url}/storage/v1/object/${path}`, { method, headers: { apikey: CFG.key, Authorization: 'Bearer ' + TOK, ...(type ? { 'Content-Type': type, 'x-upsert': 'true' } : {}) }, body });
+  if (r.status === 401 && retry && await refreshTok()) return stFetch(method, path, body, type, false);
+  if (!r.ok) { const e = new Error(await r.text()); e.status = r.status; throw e; }
+  return r;
+}
+async function upStat() { const e = $('upq'); if (!e) return; try { const n = ((await idbDo('readonly', s => s.getAll())) || []).length; e.textContent = n ? `Foto in attesa di invio: ${n}` : 'Nessuna foto in attesa di invio.'; } catch (x) {} }
+async function flushUp() {
+  if (!TOK || flushing) return; flushing = true;
+  try {
+    const all = (await idbDo('readonly', s => s.getAll())) || [];
+    for (const it of all) {
+      try { await stFetch('POST', BUCKET + '/' + it.path, it.blob, 'image/jpeg'); await idbDo('readwrite', s => s.delete(it.path)); }
+      catch (e) { if (/bucket/i.test(e.message || '')) say('Le foto non partono: manca la cartella su Supabase (script di configurazione).'); break; }
+    }
+  } catch (e) {}
+  flushing = false; upStat();
+}
+async function addFoto(files, id) {
+  if (!TOK || !uidTok()) return say('Per allegare foto serve essere collegati con il login.');
+  loadSP(); const m = SP.mov.find(x => x.id === id); if (!m) return; m.ft = m.ft || []; let n = 0;
+  for (const f of files) {
+    try { const blob = await shrink(f), path = `${uidTok()}/sp/${id}-${Date.now().toString(36)}${n++}.jpg`; await idbDo('readwrite', s => s.put({ path, blob })); m.ft.push(path); }
+    catch (e) { say('Non riesco a leggere questa immagine.'); }
+  }
+  m.u = nowI(); saveSP(); if ($('spr')) spRows(); say(n > 1 ? `${n} foto allegate.` : 'Foto allegata.'); flushUp();
+}
+async function fotoUrl(p) {
+  if (FURL.has(p)) return FURL.get(p);
+  let blob = null; try { const q = await idbDo('readonly', s => s.get(p)); blob = q && q.blob; } catch (e) {}
+  if (!blob) blob = await (await stFetch('GET', 'authenticated/' + BUCKET + '/' + p)).blob();
+  const u = URL.createObjectURL(blob); FURL.set(p, u); return u;
+}
+async function showFoto(id) {
+  loadSP(); const m = SP.mov.find(x => x.id === id); if (!m || !(m.ft || []).length) return;
+  const lb = document.createElement('div'); lb.className = 'lb'; lb.innerHTML = '<div class="ob"><button class="btn" id="lbx">Chiudi</button></div><div id="lbi"></div>';
+  document.body.appendChild(lb); lb.querySelector('#lbx').onclick = () => lb.remove(); const box = lb.querySelector('#lbi');
+  for (const p of m.ft) {
+    const w = document.createElement('div'); w.className = 'lbw'; w.innerHTML = '<p class="hint">Carico la foto…</p>'; box.appendChild(w);
+    try {
+      const u = await fotoUrl(p); w.innerHTML = `<img src="${u}" alt="Foto dello scontrino"><div class="ob"><button class="btn ghost">Elimina questa foto</button></div>`;
+      w.querySelector('button').onclick = async () => {
+        if (!confirm('Eliminare questa foto?')) return;
+        loadSP(); const mm = SP.mov.find(x => x.id === id); mm.ft = (mm.ft || []).filter(x => x !== p); mm.u = nowI(); saveSP(); w.remove(); if ($('spr')) spRows();
+        try { await idbDo('readwrite', s => s.delete(p)); } catch (e) {} stFetch('DELETE', BUCKET + '/' + p).catch(() => {});
+      };
+    } catch (e) { w.innerHTML = '<p class="warn">Non riesco a caricare la foto: sei offline, oppure la cartella su Supabase non è configurata.</p>'; }
+  }
+}
+const fotoHtml = x => `<div class="nf"><label class="btn ghost fl">Allega foto<input type="file" accept="image/*" multiple data-ph="${x.id}" hidden></label>${(x.ft || []).length ? `<button class="btn ghost" data-act="vedifoto" data-id="${x.id}">Vedi foto (${x.ft.length})</button>` : ''}</div>`;
+addEventListener('online', () => flushUp());
 
 /* ---------- Voce ---------- */
 let tT;
