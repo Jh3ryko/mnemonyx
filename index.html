@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.16.1 (1/11/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico | 0.16.0 foto degli scontrini allegate alle spese | 0.16.1 pulsante diretto Scatta foto
+  Versione 0.17.0 (1/11/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico | 0.16.0 foto degli scontrini allegate alle spese | 0.16.1 pulsante diretto Scatta foto | 0.17.0 scanner documenti e archivio con PDF, ricerca e collegamenti
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -201,6 +201,17 @@ table.cmp{width:100%;border-collapse:collapse}
 .lbw{max-width:760px;margin:0 auto 24px}
 label.fl{cursor:pointer}
 
+.scn{position:fixed;inset:0;background:var(--bg);z-index:60;overflow:auto;padding:12px 16px}
+.scn-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.scn-t,.scn-b{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;align-items:center}
+.scn-cv{display:flex;justify-content:center}
+#scn-c{max-width:100%;touch-action:none;border:1px solid var(--line);border-radius:8px}
+.scn input[type=text],.scn input[type=date],.scn input[type=month],.scn select,.scn textarea{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--text);font:inherit}
+.scn-b select{width:auto;max-width:320px}
+.scn .sw{max-width:760px;margin:0 auto}
+.th{width:48px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex:none}
+.th.ph{display:inline-grid;place-items:center;background:var(--panel2);color:var(--muted);font-size:12px}
+
 @media(min-width:769px){
  body.collapsed #side{width:var(--sc)}
  body.collapsed .lbl,body.collapsed .sh .lg{display:none}
@@ -283,7 +294,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.16.1', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.17.0', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -493,7 +504,7 @@ function go(id) {
   const x = ALL.find(a => a.id === id); if (!x) return;
   $('ttl').textContent = x.t; $('view').onclick = null; $('view').onchange = null;
   document.querySelectorAll('.ni').forEach(b => b.classList.toggle('act', b.dataset.id === id));
-  $('view').innerHTML = id === 'dash' ? dash() : id === 'imp' ? settings() : id === 'ore' ? oreView() : id === 'sind' || id === 'spese' || id === 'mezzi' || id === 'salute' ? ''
+  $('view').innerHTML = id === 'dash' ? dash() : id === 'imp' ? settings() : id === 'ore' ? oreView() : id === 'sind' || id === 'spese' || id === 'mezzi' || id === 'salute' || id === 'arch' ? ''
     : `<div class="card big"><span class="tag">In arrivo</span><h1>${x.t}</h1><p>${x.d || ''}</p></div>`;
   if (id === 'dash') initDash();
   if (id === 'imp') initSettings();
@@ -502,7 +513,8 @@ function go(id) {
   if (id === 'spese') initSpese();
   if (id === 'mezzi') initMezzi();
   if (id === 'salute') initSalute();
-  if (id !== 'sind' && id !== 'salute') unlocked = 0;
+  if (id === 'arch') initArch();
+  if (id !== 'sind' && id !== 'salute' && id !== 'arch') unlocked = 0;
   if (!isDesk()) setCol(true);
 }
 
@@ -810,7 +822,7 @@ function showReport(y, m) {
 }
 
 /* ---------- Backup e ripristino dati ---------- */
-const BK = ['mnx_ore', 'mnx_ore_p', 'mnx_ced', 'mnx_tk', 'mnx_sind', 'mnx_pin', 'mnx_spese', 'mnx_mezzi', 'mnx_salute'];
+const BK = ['mnx_ore', 'mnx_ore_p', 'mnx_ced', 'mnx_tk', 'mnx_sind', 'mnx_pin', 'mnx_spese', 'mnx_mezzi', 'mnx_salute', 'mnx_arch'];
 function bkData() {
   const dati = {}; BK.forEach(k => { const v = localStorage.getItem(k); if (v !== null) dati[k] = v; });
   return { app: 'Mnemonyx', versione: VERSION, data: new Date().toISOString(), dati };
@@ -949,6 +961,7 @@ function renderSind() {
 function dossier(id) {
   loadSD(); const p = SD.pr.find(x => x.id === id), g = SD.sig || {}, row = (a, b) => b ? `<div class="pr"><span>${esc(a)}</span><b>${esc(b)}</b></div>` : '';
   const dia = (p.dia || []).filter(x => !x.del).sort((a, b) => (a.data || '').localeCompare(b.data || '')), rf = SD.ref.filter(x => !x.del);
+  loadAR(); const dl = AR.d.filter(x => !x.del && (!x.ris || isUnl()) && x.lk && x.lk.k === 'pr' && x.lk.v === id), ad = dl.length ? '<h3>Documenti dell’archivio collegati</h3>' + dl.map(x => row(x.t || 'Documento', [x.tp, dmy(x.dt)].filter(Boolean).join(', '))).join('') : '';
   let rep = '';
   if (p.mese) {
     const [y, m] = p.mese.split('-').map(Number), r = analyze(y, m - 1), nm = cap(new Date(y, m - 1, 1).toLocaleDateString('it-IT', { month: 'long', year: 'numeric' }));
@@ -961,7 +974,7 @@ function dossier(id) {
     <h3>Pratica</h3>${row('Sindacato', g.nome)}${row('Sede', g.sede)}${row('Tipo', p.tipo)}${row('Stato', p.stato)}${row('Data apertura', p.apertura)}${row('Controparte', p.controparte)}${row('Importo contestato', p.importo ? eur(+p.importo) : '')}${row('Prossima scadenza', p.scad)}
     ${rf.length ? '<h3>Referenti</h3>' + rf.map(r => row(r.nome + (r.ruolo ? ', ' + r.ruolo : ''), [r.tel, r.email].filter(Boolean).join(' / '))).join('') : ''}
     <h3>Cronologia</h3>${dia.length ? dia.map(d => `<div class="an"><b>${esc(d.data)}: ${esc(d.tipo)}</b><p>${esc(d.testo).replace(/\n/g, '<br>')}</p></div>`).join('') : '<p class="hint">Nessuna voce nel diario.</p>'}
-    ${p.doc ? `<h3>Documenti collegati</h3><p>${esc(p.doc).replace(/\n/g, '<br>')}</p>` : ''}${p.note ? `<h3>Note</h3><p>${esc(p.note).replace(/\n/g, '<br>')}</p>` : ''}${rep}
+    ${p.doc ? `<h3>Documenti collegati</h3><p>${esc(p.doc).replace(/\n/g, '<br>')}</p>` : ''}${p.note ? `<h3>Note</h3><p>${esc(p.note).replace(/\n/g, '<br>')}</p>` : ''}${ad}${rep}
     <p class="hint">Documento riservato, generato dai dati inseriti: non sostituisce la consulenza del sindacato o di un professionista. ${COPY}.</p></div>`;
   $('dback').onclick = () => go('sind'); $('dprint').onclick = () => window.print();
 }
@@ -1306,7 +1319,7 @@ async function flushUp() {
   try {
     const all = (await idbDo('readonly', s => s.getAll())) || [];
     for (const it of all) {
-      try { await stFetch('POST', BUCKET + '/' + it.path, it.blob, 'image/jpeg'); await idbDo('readwrite', s => s.delete(it.path)); }
+      try { await stFetch('POST', BUCKET + '/' + it.path, it.blob, it.blob.type || 'image/jpeg'); await idbDo('readwrite', s => s.delete(it.path)); }
       catch (e) { if (/bucket/i.test(e.message || '')) say('Le foto non partono: manca la cartella su Supabase (script di configurazione).'); break; }
     }
   } catch (e) {}
@@ -1345,6 +1358,202 @@ async function showFoto(id) {
 }
 const fotoHtml = x => `<div class="nf"><label class="btn ghost fl">Scatta foto<input type="file" accept="image/*" capture="environment" data-ph="${x.id}" hidden></label><label class="btn ghost fl">Dalla galleria<input type="file" accept="image/*" multiple data-ph="${x.id}" hidden></label>${(x.ft || []).length ? `<button class="btn ghost" data-act="vedifoto" data-id="${x.id}">Vedi foto (${x.ft.length})</button>` : ''}</div>`;
 addEventListener('online', () => flushUp());
+
+/* ---------- Archivio documenti e scanner ---------- */
+const ARK = 'mnx_arch', DTIPI = ['Cedolino', 'Contratto', 'Comunicazione di lavoro', 'Sindacato', 'Referto o certificato', 'Fattura o ricevuta', 'Garanzia o libretto', 'Altro'];
+let AR = { d: [] }, SC = null, aq = '', at = '', openA = '';
+const loadAR = () => { try { AR = { d: [], ...JSON.parse(localStorage.getItem(ARK) || '{}') }; } catch (e) { AR = { d: [] }; } };
+const saveAR = () => { try { localStorage.setItem(ARK, JSON.stringify(AR)); touch(ARK); } catch (e) {} };
+MERGERS.mnx_arch = (a, b) => ({ d: byId((a || {}).d, (b || {}).d) });
+const isUnl = () => unlocked && Date.now() - unlocked < 300000;
+/* --- geometria: omografia e correzione di prospettiva --- */
+function homog(s, t) {
+  const A = [], b = [];
+  for (let i = 0; i < 4; i++) { const [x, y] = s[i], [X, Y] = t[i]; A.push([x, y, 1, 0, 0, 0, -x * X, -y * X]); b.push(X); A.push([0, 0, 0, x, y, 1, -x * Y, -y * Y]); b.push(Y); }
+  for (let i = 0; i < 8; i++) {
+    let m = i; for (let r = i + 1; r < 8; r++) if (Math.abs(A[r][i]) > Math.abs(A[m][i])) m = r;
+    [A[i], A[m]] = [A[m], A[i]]; [b[i], b[m]] = [b[m], b[i]];
+    for (let r = i + 1; r < 8; r++) { const f = A[r][i] / A[i][i]; for (let c = i; c < 8; c++) A[r][c] -= f * A[i][c]; b[r] -= f * b[i]; }
+  }
+  const h = Array(8); for (let i = 7; i >= 0; i--) { let v = b[i]; for (let c = i + 1; c < 8; c++) v -= A[i][c] * h[c]; h[i] = v / A[i][i]; } return h;
+}
+function warp(src, q, maxSide) {
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  let w = Math.max(d(q[0], q[1]), d(q[3], q[2])), h = Math.max(d(q[0], q[3]), d(q[1], q[2])); const k = Math.min(1, maxSide / Math.max(w, h)); w = Math.max(2, Math.round(w * k)); h = Math.max(2, Math.round(h * k));
+  const H = homog([[0, 0], [w, 0], [w, h], [0, h]], q), sw = src.width, sh = src.height, S = src.getContext('2d').getImageData(0, 0, sw, sh).data;
+  const out = document.createElement('canvas'); out.width = w; out.height = h; const cx = out.getContext('2d'), im = cx.createImageData(w, h), O = im.data;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const z = H[6] * x + H[7] * y + 1, sx = (H[0] * x + H[1] * y + H[2]) / z, sy = (H[3] * x + H[4] * y + H[5]) / z;
+    const x0 = Math.max(0, Math.min(sw - 2, Math.floor(sx))), y0 = Math.max(0, Math.min(sh - 2, Math.floor(sy))), fx = Math.max(0, Math.min(1, sx - x0)), fy = Math.max(0, Math.min(1, sy - y0));
+    const i00 = (y0 * sw + x0) * 4, i10 = i00 + 4, i01 = i00 + sw * 4, i11 = i01 + 4, o = (y * w + x) * 4;
+    for (let c = 0; c < 3; c++) O[o + c] = (S[i00 + c] * (1 - fx) + S[i10 + c] * fx) * (1 - fy) + (S[i01 + c] * (1 - fx) + S[i11 + c] * fx) * fy;
+    O[o + 3] = 255;
+  }
+  cx.putImageData(im, 0, 0); return out;
+}
+function filtra(cv, mode) {
+  if (mode === 'col') return cv;
+  const w = cv.width, h = cv.height, cx = cv.getContext('2d'), im = cx.getImageData(0, 0, w, h), D = im.data, g = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) g[i] = 0.299 * D[i * 4] + 0.587 * D[i * 4 + 1] + 0.114 * D[i * 4 + 2];
+  if (mode === 'doc') {   // si divide per lo sfondo locale (toglie ombre e luce irregolare), poi si scurisce il testo e si sbianca la carta
+    const r = Math.max(8, Math.round(Math.max(w, h) / 30)), I = new Float64Array((w + 1) * (h + 1));
+    for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += g[y * w + x]; I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + row; } }
+    for (let y = 0; y < h; y++) {
+      const y1 = Math.max(0, y - r), y2 = Math.min(h, y + r + 1);
+      for (let x = 0; x < w; x++) {
+        const x1 = Math.max(0, x - r), x2 = Math.min(w, x + r + 1), bg = (I[y2 * (w + 1) + x2] - I[y1 * (w + 1) + x2] - I[y2 * (w + 1) + x1] + I[y1 * (w + 1) + x1]) / ((x2 - x1) * (y2 - y1));
+        g[y * w + x] = Math.max(0, Math.min(255, (g[y * w + x] / (bg + 1) * 255 - 150) * 255 / 85));
+      }
+    }
+  }
+  for (let i = 0; i < w * h; i++) { const v = g[i]; D[i * 4] = D[i * 4 + 1] = D[i * 4 + 2] = v; }
+  cx.putImageData(im, 0, 0); return cv;
+}
+/* --- PDF multipagina senza librerie --- */
+function makePdf(pgs) {
+  const enc = new TextEncoder(), parts = [], off = []; let len = 0;
+  const put = x => { const b = typeof x === 'string' ? enc.encode(x) : x; parts.push(b); len += b.length; };
+  const n = 2 + pgs.length * 3, kids = pgs.map((_, i) => `${3 + i * 3} 0 R`).join(' ');
+  put('%PDF-1.4\n'); off[1] = len; put('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n'); off[2] = len; put(`2 0 obj\n<< /Type /Pages /Kids [${kids}] /Count ${pgs.length} >>\nendobj\n`);
+  pgs.forEach((p, i) => {
+    const pw = p.w > p.h ? 841.89 : 595.28, ph = +(pw * p.h / p.w).toFixed(2), a = 3 + i * 3, b = a + 1, c = a + 2, cs = `q ${pw} 0 0 ${ph} 0 0 cm /Im0 Do Q`;
+    off[a] = len; put(`${a} 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pw} ${ph}] /Resources << /XObject << /Im0 ${c} 0 R >> >> /Contents ${b} 0 R >>\nendobj\n`);
+    off[b] = len; put(`${b} 0 obj\n<< /Length ${cs.length} >>\nstream\n${cs}\nendstream\nendobj\n`);
+    off[c] = len; put(`${c} 0 obj\n<< /Type /XObject /Subtype /Image /Width ${p.w} /Height ${p.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${p.jpeg.length} >>\nstream\n`); put(p.jpeg); put('\nendstream\nendobj\n');
+  });
+  const xr = len; put(`xref\n0 ${n + 1}\n0000000000 65535 f \n` + off.slice(1).map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('') + `trailer\n<< /Size ${n + 1} /Root 1 0 R >>\nstartxref\n${xr}\n%%EOF`);
+  return new Blob(parts, { type: 'application/pdf' });
+}
+/* --- scanner: acquisizione, ritaglio, filtri, salvataggio --- */
+async function bmpCanvas(file, max = 2200) {
+  let b; try { b = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) { b = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = URL.createObjectURL(file); }); }
+  const k = Math.min(1, max / Math.max(b.width, b.height)), c = document.createElement('canvas'); c.width = Math.round(b.width * k); c.height = Math.round(b.height * k); c.getContext('2d').drawImage(b, 0, 0, c.width, c.height); return c;
+}
+const defQ = c => { const mx = c.width * 0.05, my = c.height * 0.05; return [[mx, my], [c.width - mx, my], [c.width - mx, c.height - my], [mx, c.height - my]]; };
+function rotCanvas(c, dir) { const o = document.createElement('canvas'); o.width = c.height; o.height = c.width; const x = o.getContext('2d'); x.translate(dir > 0 ? o.width : 0, dir > 0 ? 0 : o.height); x.rotate(dir * Math.PI / 2); x.drawImage(c, 0, 0); return o; }
+async function scanAdd(files) {
+  if (!SC) { SC = { pages: [], cur: 0, prev: false, mode: 'doc' }; const ov = document.createElement('div'); ov.className = 'scn'; ov.id = 'scn'; document.body.appendChild(ov); bindScan(ov); }
+  for (const f of files) { try { const c = await bmpCanvas(f); SC.pages.push({ src: c, q: defQ(c), mode: SC.mode }); } catch (e) { say('Non riesco a leggere questa immagine.'); } }
+  if (!SC.pages.length) { $('scn').remove(); SC = null; return; } SC.cur = SC.pages.length - 1; scanEdit();
+}
+function scanEdit() {
+  const ov = $('scn'), p = SC.pages[SC.cur];
+  ov.innerHTML = `<div class="scn-h"><b>Scansione: pagina ${SC.cur + 1} di ${SC.pages.length}</b><button class="btn ghost" data-s="x">Annulla</button></div>
+   <div class="scn-t">${SC.pages.map((x, i) => `<button class="btn${i === SC.cur ? '' : ' ghost'}" data-s="go" data-i="${i}">${i + 1}</button>`).join('')}<label class="btn ghost fl">+ Scatta<input type="file" accept="image/*" capture="environment" id="scn-cam" hidden></label><label class="btn ghost fl">+ Galleria<input type="file" accept="image/*" multiple id="scn-gal" hidden></label></div>
+   <div class="scn-cv"><canvas id="scn-c"></canvas></div><p class="hint">${SC.prev ? 'Anteprima del risultato.' : 'Trascina i quattro angoli sui bordi del foglio.'}</p>
+   <div class="scn-b"><button class="btn ghost" data-s="rl">Ruota a sinistra</button><button class="btn ghost" data-s="rr">Ruota a destra</button><button class="btn ghost" data-s="rq">Reimposta bordi</button><button class="btn ghost" data-s="pv">${SC.prev ? 'Mostra bordi' : 'Mostra risultato'}</button></div>
+   <div class="scn-b"><select id="scn-m"><option value="doc">Documento (bianco e nero pulito)</option><option value="gri">Scala di grigi</option><option value="col">A colori</option></select><button class="btn ghost" data-s="ml">Sposta indietro</button><button class="btn ghost" data-s="mr">Sposta avanti</button><button class="btn ghost" data-s="del">Elimina pagina</button></div>
+   <div class="scn-b"><button class="btn" data-s="next">Avanti: dati del documento</button></div>`;
+  $('scn-m').value = p.mode; scanDraw();
+}
+function scanDraw() {
+  const p = SC.pages[SC.cur], cv = $('scn-c'), cx = cv.getContext('2d'), W = Math.min($('scn').clientWidth - 32 || 700, 760);
+  if (SC.prev) { const o = filtra(warp(p.src, p.q, 900), p.mode), k = W / o.width; cv.width = W; cv.height = Math.round(o.height * k); cx.drawImage(o, 0, 0, cv.width, cv.height); return; }
+  const k = W / p.src.width; cv.width = W; cv.height = Math.round(p.src.height * k); cx.drawImage(p.src, 0, 0, cv.width, cv.height);
+  const q = p.q.map(([x, y]) => [x * k, y * k]);
+  cx.fillStyle = 'rgba(0,0,0,.5)'; cx.beginPath(); cx.rect(0, 0, cv.width, cv.height); cx.moveTo(q[0][0], q[0][1]); q.slice(1).forEach(a => cx.lineTo(a[0], a[1])); cx.closePath(); cx.fill('evenodd');
+  cx.strokeStyle = '#B197FC'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(q[0][0], q[0][1]); q.slice(1).forEach(a => cx.lineTo(a[0], a[1])); cx.closePath(); cx.stroke();
+  q.forEach(a => { cx.fillStyle = '#8B5CF6'; cx.strokeStyle = '#fff'; cx.beginPath(); cx.arc(a[0], a[1], 14, 0, 7); cx.fill(); cx.stroke(); });
+}
+function bindScan(ov) {
+  let drag = -1;
+  ov.onclick = e => {
+    const b = e.target.closest('[data-s]'); if (!b || !SC) return; const a = b.dataset.s, P = SC.pages, p = P[SC.cur];
+    if (a === 'x') { if (confirm('Annullare la scansione?')) { ov.remove(); SC = null; } return; }
+    if (a === 'go') SC.cur = +b.dataset.i; else if (a === 'rl' || a === 'rr') { p.src = rotCanvas(p.src, a === 'rr' ? 1 : -1); p.q = defQ(p.src); } else if (a === 'rq') p.q = defQ(p.src); else if (a === 'pv') SC.prev = !SC.prev;
+    else if (a === 'ml' && SC.cur > 0) { [P[SC.cur - 1], P[SC.cur]] = [P[SC.cur], P[SC.cur - 1]]; SC.cur--; } else if (a === 'mr' && SC.cur < P.length - 1) { [P[SC.cur + 1], P[SC.cur]] = [P[SC.cur], P[SC.cur + 1]]; SC.cur++; }
+    else if (a === 'del') { if (!confirm('Eliminare questa pagina?')) return; P.splice(SC.cur, 1); if (!P.length) { ov.remove(); SC = null; return; } SC.cur = Math.min(SC.cur, P.length - 1); }
+    else if (a === 'next') return scanMeta(); else if (a === 'back') return scanEdit(); else if (a === 'save') return scanSave();
+    scanEdit();
+  };
+  ov.onchange = e => {
+    const el = e.target; if (!SC) return;
+    if (el.id === 'scn-cam' || el.id === 'scn-gal') { const f = [...el.files]; el.value = ''; return scanAdd(f); }
+    if (el.id === 'scn-m') { SC.mode = el.value; SC.pages.forEach(x => { x.mode = el.value; }); if (SC.prev) scanDraw(); return; }
+    if (el.id === 'sm-tp' && ['Sindacato', 'Referto o certificato'].includes(el.value)) $('sm-r').checked = true;
+    if (el.id === 'sm-lk') $('sm-lv-w').innerHTML = el.value ? 'Quale' + lkCtl(el.value, '', 'id="sm-lv"') : '';
+  };
+  ov.addEventListener('pointerdown', e => { if (e.target.id !== 'scn-c' || SC.prev) return; const r = e.target.getBoundingClientRect(), p = SC.pages[SC.cur], k = e.target.width / p.src.width, x = (e.clientX - r.left) * (e.target.width / r.width), y = (e.clientY - r.top) * (e.target.height / r.height);
+    let best = 1e9; p.q.forEach(([qx, qy], i) => { const d = Math.hypot(qx * k - x, qy * k - y); if (d < best) { best = d; drag = i; } }); if (best > 50) drag = -1; else e.target.setPointerCapture(e.pointerId); });
+  ov.addEventListener('pointermove', e => { if (drag < 0 || e.target.id !== 'scn-c') return; const r = e.target.getBoundingClientRect(), p = SC.pages[SC.cur], k = e.target.width / p.src.width;
+    p.q[drag] = [Math.max(0, Math.min(p.src.width, (e.clientX - r.left) * (e.target.width / r.width) / k)), Math.max(0, Math.min(p.src.height, (e.clientY - r.top) * (e.target.height / r.height) / k))]; scanDraw(); });
+  ov.addEventListener('pointerup', () => { drag = -1; });
+}
+const lkCtl = (k, v, at = 'data-lv') => k === 'mese' ? `<input type="month" ${at} value="${esc(v)}">`
+  : k === 'pr' ? (isUnl() ? `<select ${at}><option value=""></option>${L2(SD.pr).map(p => `<option value="${p.id}"${p.id === v ? ' selected' : ''}>${esc(p.titolo || 'Pratica')}</option>`).join('')}</select>` : '<small>Per scegliere la pratica sblocca prima il PIN (pulsante «Sblocca riservati»).</small>')
+  : k === 'mz' ? `<select ${at}><option value=""></option>${L2(MZ.v).map(m => `<option value="${m.id}"${m.id === v ? ' selected' : ''}>${esc(m.nome || 'Mezzo')}</option>`).join('')}</select>` : '';
+function scanMeta() {
+  loadSD(); loadMZ(); const td = ymd(new Date());
+  $('scn').innerHTML = `<div class="scn-h"><b>Dati del documento</b><button class="btn ghost" data-s="x">Annulla</button></div><div class="sw">
+   <div class="sg"><label>Titolo<input type="text" id="sm-t" value="Documento ${dmy(td)}"></label><label>Tipo<select id="sm-tp"><option value=""></option>${DTIPI.map(t => `<option>${t}</option>`).join('')}</select></label><label>Data<input type="date" id="sm-d" value="${td}"></label><label>Parole chiave<input type="text" id="sm-k"></label></div>
+   <label>Note<textarea id="sm-n"></textarea></label>
+   <div class="sg"><label>Collega a<select id="sm-lk"><option value="">Nessun collegamento</option><option value="mese">Mese di lavoro (cedolino)</option><option value="pr">Pratica sindacale</option><option value="mz">Mezzo</option></select></label><label id="sm-lv-w"></label></div>
+   <label class="chk"><input type="checkbox" id="sm-r"> Riservato (si vede solo dopo il PIN)</label>
+   <div class="scn-b"><button class="btn ghost" data-s="back">Indietro</button><button class="btn" data-s="save">Salva documento (${SC.pages.length} ${SC.pages.length > 1 ? 'pagine' : 'pagina'})</button></div></div>`;
+}
+async function scanSave() {
+  if (!TOK || !uidTok()) return say('Per salvare serve essere collegati con il login.');
+  const g = id => ($(id) || {}).value || '', meta = { t: g('sm-t').trim() || 'Documento', tp: g('sm-tp'), dt: g('sm-d'), kw: g('sm-k').trim(), note: g('sm-n').trim(), ris: $('sm-r').checked, lk: g('sm-lk') ? { k: g('sm-lk'), v: g('sm-lv') } : null };
+  const ov = $('scn'); ov.innerHTML = '<p class="hint" style="padding:24px">Elaboro le pagine…</p>'; const pgs = []; let th = '';
+  for (let i = 0; i < SC.pages.length; i++) {
+    const p = SC.pages[i]; await new Promise(r => setTimeout(r, 20)); const c = filtra(warp(p.src, p.q, 1800), p.mode), blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', p.mode === 'doc' ? 0.7 : 0.78));
+    pgs.push({ jpeg: new Uint8Array(await blob.arrayBuffer()), w: c.width, h: c.height });
+    if (i === 0) { const t = document.createElement('canvas'); t.width = 180; t.height = Math.round(180 * c.height / c.width); t.getContext('2d').drawImage(c, 0, 0, t.width, t.height); th = t.toDataURL('image/jpeg', 0.5); }
+  }
+  const id = uid(), path = `${uidTok()}/doc/${id}.pdf`; await idbDo('readwrite', s => s.put({ path, blob: makePdf(pgs) }));
+  loadAR(); AR.d.push({ id, ...meta, pg: pgs.length, th, pdf: path, u: nowI() }); saveAR(); ov.remove(); SC = null; if ($('ar-l')) arList(); say('Documento salvato.'); flushUp();
+}
+/* --- archivio --- */
+async function arBlob(d) { let b = null; try { const q = await idbDo('readonly', s => s.get(d.pdf)); b = q && q.blob; } catch (e) {} return b || await (await stFetch('GET', 'authenticated/' + BUCKET + '/' + d.pdf)).blob(); }
+async function arOpen(d, dl) {
+  try {
+    const b = await arBlob(d), pdf = d.pdf.endsWith('.pdf'), u = URL.createObjectURL(new Blob([b], { type: pdf ? 'application/pdf' : (b.type || 'image/jpeg') })), a = document.createElement('a');
+    a.href = u; if (dl) a.download = (d.t || 'documento') + (pdf ? '.pdf' : '.jpg'); else a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000);
+  } catch (e) { say('Non riesco a scaricare il documento: sei offline, oppure la cartella su Supabase non è configurata.'); }
+}
+function arList() {
+  const q = aq.toLowerCase(), ok = d => (!at || d.tp === at) && (!q || [d.t, d.tp, d.kw, d.note].join(' ').toLowerCase().includes(q));
+  const docs = L2(AR.d).filter(d => d.ris && !isUnl() ? true : ok(d)).filter(d => !(d.ris && !isUnl()) || (!q && !at)).sort((a, b) => (b.dt || '').localeCompare(a.dt || ''));
+  const lk = d => !d.lk || !d.lk.k ? '' : d.lk.k === 'mese' ? `<span class="chip">Cedolino ${esc(d.lk.v)}</span>` : d.lk.k === 'pr' ? '<span class="chip">Pratica</span>' : `<span class="chip">${esc(((L2(MZ.v).find(m => m.id === d.lk.v)) || {}).nome || 'Mezzo')}</span>`;
+  $('ar-l').innerHTML = docs.map(d => d.ris && !isUnl() ? '<div class="card"><b>Documento riservato</b> <small>Sblocca con il PIN per vederlo.</small></div>' : `<details class="card pd"${openA === d.id ? ' open' : ''}><summary>${d.th ? `<img class="th" src="${d.th}" alt="">` : '<span class="th ph">PDF</span>'}<span><b>${esc(d.t || 'Documento')}</b><br><small>${esc([d.tp, dmy(d.dt), d.pg > 1 ? d.pg + ' pagine' : ''].filter(Boolean).join(', '))}</small></span>${lk(d)}${d.ris ? '<span class="chip c-n">Riservato</span>' : ''}</summary>
+    <div class="ob"><button class="btn" data-act="aopen" data-a="${d.id}">Apri</button><button class="btn ghost" data-act="adl" data-a="${d.id}">Scarica</button><button class="btn ghost" data-act="adel" data-a="${d.id}">Elimina</button></div>
+    <div class="sg"><label>Titolo<input type="text" data-a="${d.id}" data-f="t" value="${esc(d.t)}"></label><label>Tipo<select data-a="${d.id}" data-f="tp"><option value=""></option>${DTIPI.map(t => `<option${t === d.tp ? ' selected' : ''}>${t}</option>`).join('')}</select></label><label>Data<input type="date" data-a="${d.id}" data-f="dt" value="${esc(d.dt)}"></label><label>Parole chiave<input type="text" data-a="${d.id}" data-f="kw" value="${esc(d.kw)}"></label></div>
+    <label>Note<textarea data-a="${d.id}" data-f="note">${esc(d.note)}</textarea></label>
+    <div class="sg"><label>Collega a<select data-a="${d.id}" data-f="lkk"><option value=""></option><option value="mese"${(d.lk || {}).k === 'mese' ? ' selected' : ''}>Mese di lavoro (cedolino)</option><option value="pr"${(d.lk || {}).k === 'pr' ? ' selected' : ''}>Pratica sindacale</option><option value="mz"${(d.lk || {}).k === 'mz' ? ' selected' : ''}>Mezzo</option></select></label><label>${(d.lk || {}).k ? 'Quale' : ''}${lkCtl((d.lk || {}).k, (d.lk || {}).v, `data-a="${d.id}" data-f="lkv"`)}</label></div>
+    <label class="chk"><input type="checkbox" data-a="${d.id}" data-f="ris"${d.ris ? ' checked' : ''}> Riservato (si vede solo dopo il PIN)</label></details>`).join('') || '<p class="hint">Nessun documento. Scansiona il primo con la fotocamera.</p>';
+}
+function renderArch() {
+  loadAR(); loadSD(); loadMZ();
+  $('view').innerHTML = `<div class="sw"><div class="ob"><label class="btn fl">Scansiona con la fotocamera<input type="file" id="ar-cam" accept="image/*" capture="environment" hidden></label><label class="btn ghost fl">Scansiona dalla galleria<input type="file" id="ar-gal" accept="image/*" multiple hidden></label><label class="btn ghost fl">Carica un file (PDF o immagine)<input type="file" id="ar-up" accept="application/pdf,image/*" hidden></label><button class="btn ghost" data-act="aunlock">Sblocca riservati</button></div>
+    <div class="sg"><label>Cerca<input type="text" id="aq" value="${esc(aq)}" placeholder="titolo, parola chiave, nota"></label><label>Tipo<select id="at"><option value="">Tutti</option>${DTIPI.map(t => `<option${t === at ? ' selected' : ''}>${t}</option>`).join('')}</select></label></div><div id="ar-l"></div></div>`;
+  arList(); const v = $('view');
+  v.oninput = e => { if (e.target.id === 'aq') { aq = e.target.value; arList(); } };
+  v.onchange = async e => {
+    const el = e.target, d = el.dataset;
+    if (el.id === 'ar-cam' || el.id === 'ar-gal') { const f = [...el.files]; el.value = ''; return f.length && scanAdd(f); }
+    if (el.id === 'at') { at = el.value; return arList(); }
+    if (el.id === 'ar-up') { const f = el.files[0]; el.value = ''; return f && arUpload(f); }
+    const doc = d.a && AR.d.find(x => x.id === d.a); if (!doc || !d.f) return; unlocked = isUnl() ? Date.now() : unlocked;
+    const val = el.type === 'checkbox' ? el.checked : el.value;
+    if (d.f === 'lkk') doc.lk = val ? { k: val, v: '' } : null; else if (d.f === 'lkv') doc.lk = { ...(doc.lk || {}), v: val }; else doc[d.f] = val;
+    doc.u = nowI(); saveAR(); openA = doc.id; arList();
+    if (d.f === 'ris' && val && !isUnl()) say('Documento riservato: lo rivedi dopo aver inserito il PIN.');
+  };
+  v.onclick = async e => {
+    const b = e.target.closest('[data-act]'); if (!b) return; const d = b.dataset, doc = d.a && AR.d.find(x => x.id === d.a);
+    if (d.act === 'aunlock') return sindLock(renderArch, 'Archivio');
+    if (!doc) return;
+    if (d.act === 'aopen') return arOpen(doc, false); if (d.act === 'adl') return arOpen(doc, true);
+    if (d.act === 'adel') { if (!confirm('Eliminare il documento?')) return; doc.del = true; doc.u = nowI(); saveAR(); try { await idbDo('readwrite', s => s.delete(doc.pdf)); } catch (x) {} stFetch('DELETE', BUCKET + '/' + doc.pdf).catch(() => {}); arList(); }
+  };
+}
+async function arUpload(f) {
+  if (!TOK || !uidTok()) return say('Per caricare serve essere collegati con il login.'); if (f.size > 12e6) return say('Il file è troppo grande (massimo 12 MB).');
+  const pdf = f.type === 'application/pdf', id = uid(), path = `${uidTok()}/doc/${id}.${pdf ? 'pdf' : 'jpg'}`; let blob = f, th = '';
+  if (!pdf) { try { blob = await shrink(f); const c = await bmpCanvas(f, 180); th = c.toDataURL('image/jpeg', 0.5); } catch (e) { return say('Non riesco a leggere questa immagine.'); } }
+  await idbDo('readwrite', s => s.put({ path, blob })); loadAR(); AR.d.push({ id, t: f.name.replace(/\.[^.]+$/, ''), tp: '', dt: ymd(new Date()), kw: '', note: '', ris: false, lk: null, pg: 1, th, pdf: path, u: nowI() }); saveAR(); openA = id; renderArch(); say('File caricato.'); flushUp();
+}
+function initArch() { renderArch(); }
 
 /* ---------- Voce ---------- */
 let tT;
