@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.17.0 (1/11/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico | 0.16.0 foto degli scontrini allegate alle spese | 0.16.1 pulsante diretto Scatta foto | 0.17.0 scanner documenti e archivio con PDF, ricerca e collegamenti
+  Versione 0.18.0 (3/11/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico | 0.16.0 foto degli scontrini allegate alle spese | 0.16.1 pulsante diretto Scatta foto | 0.17.0 scanner documenti e archivio con PDF, ricerca e collegamenti | 0.18.0 cifratura dei dati sensibili con il PIN
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -212,6 +212,9 @@ label.fl{cursor:pointer}
 .th{width:48px;height:64px;object-fit:cover;border-radius:6px;border:1px solid var(--line);flex:none}
 .th.ph{display:inline-grid;place-items:center;background:var(--panel2);color:var(--muted);font-size:12px}
 
+.scn input[type=password]{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;color:var(--text);font:inherit}
+.card.code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;letter-spacing:.04em;word-break:break-all;user-select:all}
+
 @media(min-width:769px){
  body.collapsed #side{width:var(--sc)}
  body.collapsed .lbl,body.collapsed .sh .lg{display:none}
@@ -294,7 +297,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.17.0', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.18.0', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -382,7 +385,7 @@ function saveS(j, remember) {
 }
 function logout(msg) {
   localStorage.removeItem('mnx_s'); sessionStorage.removeItem('mnx_s');
-  demo = false; TOK = ''; syncUI('ok', ''); clearTimeout(idleT); try { speechSynthesis.cancel(); } catch (e) {}
+  demo = false; TOK = ''; lockCrypto(); syncUI('ok', ''); clearTimeout(idleT); try { speechSynthesis.cancel(); } catch (e) {}
   $('app').hidden = true; $('login').hidden = false; $('pw').value = ''; $('err').textContent = msg || '';
 }
 function arm() { clearTimeout(idleT); idleT = setTimeout(() => logout('Sessione bloccata per inattività. Accedi di nuovo.'), IDLE_MIN * 60000); }
@@ -426,39 +429,58 @@ function touch(k) {
   localStorage.setItem('mnx_dirty', JSON.stringify([...dirty]));
   syncUI('wa', 'Modifiche da sincronizzare'); clearTimeout(pushT); pushT = setTimeout(push, 1500);
 }
-async function push() {
+const canon = o => JSON.stringify(o, (k, v) => Array.isArray(v) ? (v.every(x => x && x.id) ? [...v].sort((a, b) => a.id < b.id ? -1 : 1) : v) : (v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).sort(([a], [b]) => a < b ? -1 : 1)) : v));
+async function push(retry = 0) {
   if (!TOK || !dirty.size) return;
   try {
     syncUI('wa', 'Sincronizzazione in corso');
-    const mk = [...dirty].filter(k => k === 'mnx_ore' || k === 'mnx_ced' || MERGERS[k]);   // prima di scrivere, unisco con quanto scritto da altri dispositivi
+    const locked = k => SECK.includes(k) && encV2() && !DEK, keys = [...dirty].filter(k => !locked(k));   // i dati cifrati partono solo a sezione sbloccata
+    const mk = keys.filter(k => k === 'mnx_ore' || k === 'mnx_ced' || MERGERS[k]);   // prima di scrivere, unisco con quanto scritto da altri dispositivi
     if (mk.length) {
       const rem = await (await api('mnx_dati?select=chiave,valore&chiave=in.(' + mk.join(',') + ')')).json();
-      rem.forEach(r => { const lraw = localStorage.getItem(r.chiave); let loc = {}; try { loc = JSON.parse(lraw) || {}; } catch (e) {} const t = JSON.stringify(MERGERS[r.chiave] ? MERGERS[r.chiave](loc, r.valore) : { ...r.valore, ...loc }); if (t !== lraw) localStorage.setItem(r.chiave, t); });
+      for (const r of rem) {
+        const lraw = localStorage.getItem(r.chiave); let loc = {}; try { loc = JSON.parse(lraw) || {}; } catch (e) {}
+        if (SECK.includes(r.chiave) && encV2()) {
+          if (isEnv(r.valore)) { try { const rp = await openEnv(r.valore), lp = CACHE[r.chiave] || {}, mg = MERGERS[r.chiave](lp, rp); if (JSON.stringify(mg) !== JSON.stringify(lp)) { CACHE[r.chiave] = mg; localStorage.setItem(r.chiave, JSON.stringify(await seal(mg))); } } catch (e) {} }
+        } else { const t = JSON.stringify(MERGERS[r.chiave] ? MERGERS[r.chiave](loc, r.valore) : { ...r.valore, ...loc }); if (t !== lraw) localStorage.setItem(r.chiave, t); }
+      }
     }
-    const rows = [...dirty].filter(k => localStorage.getItem(k) !== null).map(k => {
+    const rows = keys.filter(k => localStorage.getItem(k) !== null).map(k => {
       const v = localStorage.getItem(k); let val; try { val = JSON.parse(v); } catch (e) { val = v; }
       return { chiave: k, valore: val, aggiornato: localStorage.getItem('mnx_mod_' + k) || new Date().toISOString() };
-    });
+    }).filter(r => !(SECK.includes(r.chiave) && encV2() && !isEnv(r.valore)));   // mai dati sensibili in chiaro a cifratura attiva
     if (rows.length) await api('mnx_dati?on_conflict=user_id,chiave', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(rows) });
-    dirty.clear(); localStorage.setItem('mnx_dirty', '[]'); syncUI('ok', 'Dati sincronizzati');
+    const chk = keys.filter(k => k === 'mnx_ore' || k === 'mnx_ced' || MERGERS[k]);
+    if (rows.length && retry < 2 && chk.length) {   // controllo che nel frattempo un altro dispositivo non abbia scritto: se sì, unisco di nuovo e riscrivo
+      const back = await (await api('mnx_dati?select=chiave,valore&chiave=in.(' + chk.join(',') + ')')).json(); let redo = false;
+      for (const r of back) { try { const sec = SECK.includes(r.chiave) && encV2(); if (canon(sec ? await openEnv(r.valore) : r.valore) !== canon(sec ? CACHE[r.chiave] : JSON.parse(localStorage.getItem(r.chiave)))) redo = true; } catch (e) {} }
+      if (redo) return push(retry + 1);
+    }
+    keys.forEach(k => dirty.delete(k)); localStorage.setItem('mnx_dirty', JSON.stringify([...dirty])); syncUI('ok', 'Dati sincronizzati');
   } catch (e) { syncUI('ko', 'Sincronizzazione non riuscita: riprovo appena possibile'); }
 }
 async function pull() {
   if (!TOK) return false;
   try {
     syncUI('wa', 'Sincronizzazione in corso');
-    const rows = await (await api('mnx_dati?select=chiave,valore,aggiornato')).json(), now = () => new Date().toISOString();
-    rows.filter(r => BK.includes(r.chiave)).forEach(r => {
-      const k = r.chiave, lraw = localStorage.getItem(k), lmod = localStorage.getItem('mnx_mod_' + k);
-      let loc = null; try { loc = lraw === null ? null : JSON.parse(lraw); } catch (e) { loc = lraw; }
-      const remNewer = !lmod || new Date(r.aggiornato) > new Date(lmod), merge = k === 'mnx_ore' || k === 'mnx_ced';
-      const out = loc === null ? r.valore : MERGERS[k] ? MERGERS[k](loc, r.valore) : merge ? (remNewer ? { ...loc, ...r.valore } : { ...r.valore, ...loc }) : (remNewer ? r.valore : loc);
+    const rows = await (await api('mnx_dati?select=chiave,valore,aggiornato')).json(), now = () => new Date().toISOString(), pj = v => { try { return v === null ? null : JSON.parse(v); } catch (e) { return v; } };
+    for (const r of rows.filter(r => BK.includes(r.chiave))) {
+      const k = r.chiave, lraw = localStorage.getItem(k), lmod = localStorage.getItem('mnx_mod_' + k), loc = pj(lraw);
+      const remNewer = !lmod || new Date(r.aggiornato) > new Date(lmod), merge = k === 'mnx_ore' || k === 'mnx_ced', sec = SECK.includes(k) && (isEnv(r.valore) || isEnv(loc));
+      let out;
+      if (sec) {
+        if (loc === null) out = r.valore;
+        else if (isEnv(loc) && isEnv(r.valore) && JSON.stringify(loc) === JSON.stringify(r.valore)) out = loc;
+        else if (DEK && isEnv(r.valore)) { try { const rp = await openEnv(r.valore), lp = isEnv(loc) ? await openEnv(loc) : loc, mg = MERGERS[k](lp, rp); CACHE[k] = mg; out = await seal(mg); } catch (e) { out = loc; } }
+        else if (!isEnv(r.valore)) out = loc;
+        else if (dirty.has(k) || !remNewer) { out = loc; localStorage.setItem('mnx_pend_' + k, JSON.stringify(r.valore)); }
+        else out = r.valore;
+      } else out = loc === null ? r.valore : MERGERS[k] ? MERGERS[k](loc, r.valore) : merge ? (remNewer ? { ...loc, ...r.valore } : { ...r.valore, ...loc }) : (remNewer ? r.valore : loc);
       const s = typeof out === 'string' ? out : JSON.stringify(out);
       if (s !== lraw) localStorage.setItem(k, s);
-      if (JSON.stringify(out) !== JSON.stringify(r.valore)) { dirty.add(k); localStorage.setItem('mnx_mod_' + k, now()); }
-      else localStorage.setItem('mnx_mod_' + k, r.aggiornato);
-    });
-    BK.forEach(k => { if (localStorage.getItem(k) !== null && !rows.some(r => r.chiave === k)) { dirty.add(k); localStorage.setItem('mnx_mod_' + k, now()); } });
+      if (JSON.stringify(out) !== JSON.stringify(r.valore)) { dirty.add(k); localStorage.setItem('mnx_mod_' + k, now()); } else localStorage.setItem('mnx_mod_' + k, r.aggiornato);
+    }
+    BK.forEach(k => { const v = pj(localStorage.getItem(k)); if (v !== null && !rows.some(r => r.chiave === k) && !(SECK.includes(k) && encV2() && !isEnv(v))) { dirty.add(k); localStorage.setItem('mnx_mod_' + k, now()); } });
     localStorage.setItem('mnx_dirty', JSON.stringify([...dirty]));
     await push(); return true;
   } catch (e) { syncUI('ko', 'Offline o errore: uso i dati salvati su questo dispositivo'); return false; }
@@ -532,14 +554,12 @@ const cap = s => s[0].toUpperCase() + s.slice(1);
 const evTitle = e => e.s === 'salute' ? (e.k === 'promemoria' ? 'Promemoria salute' : 'Appuntamento') : e.p ? 'Scadenza riservata' : e.t;   // privacy: niente dettagli medici in dashboard
 let EV = [], selD = '', vy = 0, vm = 0, clkT;
 
-function loadEvents() {   // scadenze delle pratiche sindacali (mostrate in forma riservata)
-  loadSD(); loadSP(); const ev = SD.pr.filter(p => !p.del && p.scad && p.stato !== 'Chiusa').map(p => ({ t: p.titolo || 'Pratica', d: p.scad, s: 'work', k: 'scadenza', p: 1 })), t = new Date();
+function loadEvents() {   // scadenze riservate (da indice di sole date), spese ricorrenti e mezzi
+  const ag = agGet(); loadSP(); const t = new Date(), td = ymd(t);
+  const ev = (ag.sin || []).filter(x => x.d).map(x => ({ t: 'Pratica', d: x.d, s: 'work', k: 'scadenza', p: 1 }));
   [0, 1].forEach(o => { const m = new Date(t.getFullYear(), t.getMonth() + o, 1); previste(m.getFullYear(), m.getMonth()).forEach(x => ev.push({ t: x.r.t || 'Spesa', d: x.date, s: 'spese', k: 'scadenza' })); });
   loadMZ(); L2(MZ.v).forEach(v => L2(v.sc).filter(x => x.d && dayDiff(x.d) >= -30).forEach(x => ev.push({ t: ((x.tipo || 'Scadenza') + ' ' + (v.nome || '')).trim(), d: x.d, s: 'mezzi', k: 'scadenza' })));
-  loadSAN(); L2(SAN.p).forEach(p => { const td = ymd(new Date());
-    L2(p.vi).filter(x => x.d && x.d >= td && x.st !== 'Eseguita' && x.st !== 'Annullata').forEach(x => ev.push({ t: 'Appuntamento', d: x.d, s: 'salute', k: 'appuntamento' }));
-    L2(p.cu).filter(x => x.ric && x.att !== false && x.ric >= td).forEach(x => ev.push({ t: 'Promemoria', d: x.ric, s: 'salute', k: 'promemoria' }));
-    L2(p.va).filter(x => x.ric && x.ric >= td).forEach(x => ev.push({ t: 'Promemoria', d: x.ric, s: 'salute', k: 'promemoria' })); });
+  (ag.sal || []).filter(x => x.d && x.d >= td).forEach(x => ev.push({ t: x.k === 'promemoria' ? 'Promemoria' : 'Appuntamento', d: x.d, s: 'salute', k: x.k }));
   return ev;
 }
 const dash = () => `<div class="ck" id="ck"></div><div class="cd" id="cd"></div>
@@ -614,6 +634,11 @@ const settings = () => `<div class="card big"><h1>Impostazioni</h1>
     <div class="ob"><button class="btn" id="inst" hidden>Installa Mnemonyx</button></div>
     <small>iPhone: apri il sito in Safari, tocca Condividi e poi «Aggiungi alla schermata Home». Android: menu del browser, «Installa app».</small>
   </fieldset>
+  <fieldset class="st"><legend>Cifratura dei dati sensibili</legend>
+    <small id="encs"></small>
+    <div class="ob"><button class="btn" id="enc-on" hidden>Attiva la cifratura</button><button class="btn ghost" id="enc-ch" hidden>Cambia PIN di cifratura</button><button class="btn ghost" id="enc-sh" hidden>Mostra il codice di recupero</button></div>
+    <small>Cifra Salute, Sindacato e i documenti riservati sul tuo dispositivo, prima che arrivino su Supabase.</small>
+  </fieldset>
   <fieldset class="st"><legend>PIN delle sezioni riservate</legend>
     <div class="ob"><button class="btn ghost" id="pinr">Reimposta PIN</button></div>
     <small>Dopo il reset, alla prossima apertura della sezione Sindacato ti verrà chiesto di sceglierne uno nuovo.</small>
@@ -635,7 +660,9 @@ function initSettings() {
   $('inz').textContent = sa ? 'Stai già usando Mnemonyx come app.' : '';
   $('inst').hidden = !ip || sa;
   $('inst').onclick = async () => { ip.prompt(); try { await ip.userChoice; } catch (e) {} ip = null; $('inst').hidden = true; };
-  $('pinr').onclick = () => { if (confirm('Reimpostare il PIN?')) { localStorage.setItem(PINK, '{}'); touch(PINK); say('PIN reimpostato.'); } };
+  const ev2 = !!encV2(); $('encs').textContent = ev2 ? 'Attiva: Salute, Sindacato e documenti riservati sono cifrati prima di andare su Supabase.' : 'Non attiva: i dati sensibili sono protetti dal login, ma chi gestisce il servizio potrebbe leggerli.';
+  $('enc-on').hidden = ev2; $('enc-ch').hidden = !ev2; $('enc-sh').hidden = !ev2; $('enc-on').onclick = encWizard; $('enc-ch').onclick = encChange; $('enc-sh').onclick = encShowCode;
+  $('pinr').onclick = () => { if (encV2()) return say('Con la cifratura attiva usa «Cambia PIN di cifratura» o il codice di recupero.'); if (confirm('Reimpostare il PIN?')) { localStorage.setItem(PINK, '{}'); touch(PINK); say('PIN reimpostato.'); } };
   upStat(); $('bkx').onclick = exportBk; $('bki').onclick = () => $('bkf').click();
   $('bkf').onchange = () => { if ($('bkf').files[0]) importBk($('bkf').files[0]); $('bkf').value = ''; };
   document.querySelectorAll('input[name=tk]').forEach(r => { r.checked = r.value === cur; r.onchange = () => setTk(r.value); });
@@ -822,7 +849,7 @@ function showReport(y, m) {
 }
 
 /* ---------- Backup e ripristino dati ---------- */
-const BK = ['mnx_ore', 'mnx_ore_p', 'mnx_ced', 'mnx_tk', 'mnx_sind', 'mnx_pin', 'mnx_spese', 'mnx_mezzi', 'mnx_salute', 'mnx_arch'];
+const BK = ['mnx_ore', 'mnx_ore_p', 'mnx_ced', 'mnx_tk', 'mnx_sind', 'mnx_pin', 'mnx_spese', 'mnx_mezzi', 'mnx_salute', 'mnx_arch', 'mnx_riserv', 'mnx_ag'];
 function bkData() {
   const dati = {}; BK.forEach(k => { const v = localStorage.getItem(k); if (v !== null) dati[k] = v; });
   return { app: 'Mnemonyx', versione: VERSION, data: new Date().toISOString(), dati };
@@ -841,12 +868,12 @@ function importBk(file) {
     try {
       const o = JSON.parse(r.result);
       if (o.app !== 'Mnemonyx' || typeof o.dati !== 'object') throw 0;
-      const ks = BK.filter(k => typeof o.dati[k] === 'string');
+      const ks = BK.filter(k => typeof o.dati[k] === 'string' && !(k === 'mnx_pin' && encV2()));
       ks.filter(k => k !== 'mnx_tk').forEach(k => JSON.parse(o.dati[k]));
       if (!ks.length) throw 0;
       if (!confirm(`Sostituire i dati attuali con quelli del backup del ${new Date(o.data).toLocaleDateString('it-IT')}?`)) return;
       ks.forEach(k => { localStorage.setItem(k, o.dati[k]); touch(k); });
-      setTk(localStorage.getItem('mnx_tk') || 'on'); OD = {}; CED = {}; go('imp'); say('Backup importato.');
+      setTk(localStorage.getItem('mnx_tk') || 'on'); OD = {}; CED = {}; (encV2() && DEK ? decryptAll() : Promise.resolve()).then(() => { go('imp'); say('Backup importato.'); });
     } catch (e) { say('File di backup non valido.'); }
   };
   r.readAsText(file);
@@ -860,8 +887,8 @@ const CONTATTI = ['Incontro', 'Telefonata', 'Email', 'Lettera', 'Altro'];
 let SD = { sig: {}, ref: [], pr: [] }, unlocked = 0, openP = '';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6), nowI = () => new Date().toISOString();
-const loadSD = () => { try { SD = { sig: {}, ref: [], pr: [], ...JSON.parse(localStorage.getItem(SIND) || '{}') }; } catch (e) {} };
-const saveSD = () => { try { localStorage.setItem(SIND, JSON.stringify(SD)); touch(SIND); } catch (e) {} };
+const loadSD = () => { SD = { sig: {}, ref: [], pr: [], ...secGet(SIND) }; };
+const saveSD = () => secSet(SIND, SD);
 const byId = (x = [], y = []) => { const m = new Map(); [...x, ...y].forEach(i => { const o = m.get(i.id); if (!o || (i.u || '') > (o.u || '')) m.set(i.id, i); }); return [...m.values()]; };
 function mergeSind(a, b) {
   a = a || {}; b = b || {};
@@ -890,18 +917,19 @@ function sha256js(m) {
 const sha = async t => (window.crypto && crypto.subtle) ? [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(t)))].map(b => b.toString(16).padStart(2, '0')).join('') : sha256js(t);
 function sindLock(next = initSind, titolo = 'Sindacato') {
   let p = {}; try { p = JSON.parse(localStorage.getItem(PINK) || '{}'); } catch (e) {}
-  const has = !!p.h;
+  const v2 = p.v === 2, has = !!p.h || v2;
   $('view').onclick = null; $('view').onchange = null;
   $('view').innerHTML = `<div class="card big"><h1>${titolo}</h1><p>${has ? 'Sezione riservata: inserisci il PIN.' : 'Sezione riservata: scegli un PIN di almeno 4 cifre.'}</p>
-    <form id="pf"><label>PIN<input id="pin" type="password" inputmode="numeric" autocomplete="one-time-code"></label>
+    <form id="pf"><label>PIN<input id="pin" type="password" ${v2 ? '' : 'inputmode="numeric" '}autocomplete="one-time-code"></label>
     ${has ? '' : '<label>Ripeti il PIN<input id="pin2" type="password" inputmode="numeric" autocomplete="one-time-code"></label>'}
-    <div class="ob"><button class="btn" id="pgo" type="submit">${has ? 'Sblocca' : 'Imposta PIN'}</button></div></form><p class="warn" id="perr" role="alert"></p>
-    <small class="hint">Il PIN protegge la sezione sullo schermo. Se lo dimentichi puoi reimpostarlo da Impostazioni. (Mnemonyx versione ${VERSION})</small></div>`;
+    <div class="ob"><button class="btn" id="pgo" type="submit">${has ? 'Sblocca' : 'Imposta PIN'}</button>${v2 ? '<button class="btn ghost" type="button" id="prec">Ho dimenticato il PIN</button>' : ''}</div></form><p class="warn" id="perr" role="alert"></p>
+    <small class="hint">Il PIN protegge la sezione sullo schermo${v2 ? ' e cifra i dati' : ''}. ${v2 ? 'Se lo dimentichi serve il codice di recupero.' : 'Se lo dimentichi puoi reimpostarlo da Impostazioni.'} (Mnemonyx versione ${VERSION})</small></div>`;
   $('pf').onsubmit = async e => {
     e.preventDefault(); const er = t => { $('perr').textContent = t; }; er(has ? 'Controllo il PIN…' : 'Salvo il PIN…');
     try {
       const v = $('pin').value;
-      if (has) { if (await sha(p.s + v) !== p.h) return er('PIN errato.'); }
+      if (v2) { try { DEK = await unwrapDek(p, v); } catch (x) { DEK = null; return er('PIN errato.'); } await decryptAll(); }
+      else if (has) { if (await sha(p.s + v) !== p.h) return er('PIN errato.'); }
       else {
         if (!/^\d{4,}$/.test(v)) return er('Il PIN deve avere almeno 4 cifre, solo numeri.');
         if (v !== $('pin2').value) return er('I due PIN non coincidono.');
@@ -910,9 +938,10 @@ function sindLock(next = initSind, titolo = 'Sindacato') {
       unlocked = Date.now(); er(''); next();
     } catch (err) { er('Non sono riuscito a completare l’operazione: ' + ((err && err.message) || err)); }
   };
+  if (v2) $('prec').onclick = () => encRecover(next);
   $('pin').focus();
 }
-function initSind() { loadSD(); if (!unlocked || Date.now() - unlocked > 300000) return sindLock(); renderSind(); }
+function initSind() { loadSD(); if (!isUnl()) return sindLock(); renderSind(); }
 const sm = p => `<b>${esc(p.titolo || 'Nuova pratica')}</b><span class="chip s-${(p.stato || '').replace(/\s/g, '')}">${esc(p.stato || 'Senza stato')}</span>${p.scad ? `<small>scadenza ${esc(p.scad)}</small>` : ''}`;
 function setv(el) {
   const d = el.dataset, v = el.value, t = nowI(); unlocked = Date.now();
@@ -945,7 +974,7 @@ function renderSind() {
   v.onclick = e => {
     const b = e.target.closest('[data-act]'); if (!b) return;
     const d = b.dataset, t = nowI(); unlocked = Date.now();
-    if (d.act === 'slock') { unlocked = 0; return sindLock(); }
+    if (d.act === 'slock') { unlocked = 0; if (encV2()) lockCrypto(); return sindLock(); }
     if (d.act === 'dossier') return dossier(d.id);
     if (d.act === 'call' || d.act === 'mail') { const r = SD.ref.find(x => x.id === d.id), val = r && (d.act === 'call' ? r.tel : r.email); return val ? (location.href = (d.act === 'call' ? 'tel:' : 'mailto:') + val) : say(d.act === 'call' ? 'Inserisci prima il numero di telefono.' : 'Inserisci prima l’indirizzo email.'); }
     const pr = SD.pr.find(x => x.id === d.id);
@@ -1204,8 +1233,8 @@ const SAL = {
 };
 const SAL_K = Object.keys(SAL);
 let SAN = { p: [] }, openS = '';
-const loadSAN = () => { try { SAN = { p: [], ...JSON.parse(localStorage.getItem(SANK) || '{}') }; } catch (e) { SAN = { p: [] }; } };
-const saveSAN = () => { try { localStorage.setItem(SANK, JSON.stringify(SAN)); touch(SANK); } catch (e) {} };
+const loadSAN = () => { SAN = { p: [], ...secGet(SANK) }; };
+const saveSAN = () => secSet(SANK, SAN);
 function mergeSalute(a, b) {
   a = a || {}; b = b || {};
   return { p: byId(a.p, b.p).map(x => { const pa = (a.p || []).find(y => y.id === x.id) || {}, pb = (b.p || []).find(y => y.id === x.id) || {}, o = { ...x }; SAL_K.forEach(k => { o[k] = byId(pa[k], pb[k]); }); return o; }) };
@@ -1214,7 +1243,7 @@ MERGERS.mnx_salute = mergeSalute;
 function syncSpS(p, r, k) {
   loadSP(); const id = 'sa-' + r.id, m = SP.mov.find(x => x.id === id);
   if (r.sp && +r.imp > 0 && r.d && r.st !== 'Annullata') {
-    const o = { id, d: r.d, imp: +r.imp, cat: 'Salute e farmacia', t: ((k === 'vi' ? 'Visita' : 'Esame') + ': ' + (r.t || '') + ' ' + (p.nome || '')).trim(), det: !!r.det, sa: p.id, u: nowI(), del: false };
+    const o = { id, d: r.d, imp: +r.imp, cat: 'Salute e farmacia', t: encV2() ? 'Spesa medica' : ((k === 'vi' ? 'Visita' : 'Esame') + ': ' + (r.t || '') + ' ' + (p.nome || '')).trim(), det: !!r.det, sa: p.id, u: nowI(), del: false };
     if (m) Object.assign(m, o); else SP.mov.push(o); saveSP();
   } else if (m && !m.del) { m.del = true; m.u = nowI(); saveSP(); }
 }
@@ -1258,7 +1287,7 @@ function renderSalute() {
   };
   vw.onclick = e => {
     const b = e.target.closest('[data-act]'); if (!b) return; const d = b.dataset, t = nowI(), td = ymd(new Date()), p = SAN.p.find(x => x.id === d.p); unlocked = Date.now();
-    if (d.act === 'slock') { unlocked = 0; return sindLock(initSalute, 'Salute'); }
+    if (d.act === 'slock') { unlocked = 0; if (encV2()) lockCrypto(); return sindLock(initSalute, 'Salute'); }
     if (d.act === 'detcsv') return detCsv();
     if (d.act === 'addp') { const id = uid(), o = { id, nome: '', nasc: '', gs: '', medico: '', telmed: '', fam: '', note: '', u: t }; SAL_K.forEach(k => { o[k] = []; }); SAN.p.push(o); openS = id; }
     else if (!p) return;
@@ -1269,7 +1298,7 @@ function renderSalute() {
     saveSAN(); renderSalute();
   };
 }
-function initSalute() { loadSAN(); if (!unlocked || Date.now() - unlocked > 300000) return sindLock(initSalute, 'Salute'); renderSalute(); }
+function initSalute() { loadSAN(); if (!isUnl()) return sindLock(initSalute, 'Salute'); renderSalute(); }
 function detCsv() {
   loadSP(); const yr = String(new Date().getFullYear()), q = s => '"' + String(s ?? '').replace(/"/g, '""') + '"';
   const rows = SP.mov.filter(x => !x.del && x.det && (x.d || '').startsWith(yr)).sort((a, b) => a.d.localeCompare(b.d)).map(x => [x.d, q(x.t), String(x.imp).replace('.', ',')].join(';'));
@@ -1322,6 +1351,10 @@ async function flushUp() {
       try { await stFetch('POST', BUCKET + '/' + it.path, it.blob, it.blob.type || 'image/jpeg'); await idbDo('readwrite', s => s.delete(it.path)); }
       catch (e) { if (/bucket/i.test(e.message || '')) say('Le foto non partono: manca la cartella su Supabase (script di configurazione).'); break; }
     }
+    if (!((await idbDo('readonly', s => s.getAll())) || []).length) {
+      let dq = []; try { dq = JSON.parse(localStorage.getItem('mnx_delq') || '[]'); } catch (e) {}
+      if (dq.length) { const rest = []; for (const pth of dq) { try { await stFetch('DELETE', BUCKET + '/' + pth); } catch (e) { if (e.status !== 400 && e.status !== 404) rest.push(pth); } } localStorage.setItem('mnx_delq', JSON.stringify(rest)); }
+    }
   } catch (e) {}
   flushing = false; upStat();
 }
@@ -1362,10 +1395,29 @@ addEventListener('online', () => flushUp());
 /* ---------- Archivio documenti e scanner ---------- */
 const ARK = 'mnx_arch', DTIPI = ['Cedolino', 'Contratto', 'Comunicazione di lavoro', 'Sindacato', 'Referto o certificato', 'Fattura o ricevuta', 'Garanzia o libretto', 'Altro'];
 let AR = { d: [] }, SC = null, aq = '', at = '', openA = '';
-const loadAR = () => { try { AR = { d: [], ...JSON.parse(localStorage.getItem(ARK) || '{}') }; } catch (e) { AR = { d: [] }; } };
-const saveAR = () => { try { localStorage.setItem(ARK, JSON.stringify(AR)); touch(ARK); } catch (e) {} };
+const loadAR = () => {
+  let plain = []; try { plain = (JSON.parse(localStorage.getItem(ARK) || '{}') || {}).d || []; } catch (e) {}
+  let res = (encV2() && DEK && CACHE.mnx_riserv) ? (CACHE.mnx_riserv.d || []).map(x => ({ ...x, ris: true })) : [];
+  const rid = new Set(res.filter(x => !x.del).map(x => x.id)), pid = new Set(plain.filter(x => !x.del).map(x => x.id));
+  plain = plain.filter(x => !rid.has(x.id)); res = res.filter(x => !(x.del && pid.has(x.id)));   // un documento sta in un solo archivio: l'altro conserva solo una lapide
+  AR = { d: plain.concat(res) };
+};
+const saveAR = () => {
+  try {
+    if (!encV2()) { localStorage.setItem(ARK, JSON.stringify(AR)); touch(ARK); return; }
+    let old = []; try { old = (JSON.parse(localStorage.getItem(ARK) || '{}') || {}).d || []; } catch (e) {}
+    const plain = AR.d.filter(x => !x.ris);
+    AR.d.filter(x => x.ris).forEach(x => { const o = old.find(y => y.id === x.id); plain.push(o && o.del ? o : { id: x.id, del: true, u: nowI() }); });   // lapide: cancella la copia in chiaro anche sul server
+    localStorage.setItem(ARK, JSON.stringify({ d: plain })); touch(ARK);
+    if (DEK) {
+      const prev = (CACHE.mnx_riserv && CACHE.mnx_riserv.d) || [], res = AR.d.filter(x => x.ris);
+      prev.forEach(x => { if (!res.some(y => y.id === x.id)) res.push(x.del ? x : { id: x.id, del: true, u: nowI() }); });
+      CACHE.mnx_riserv = { d: res }; secPersist('mnx_riserv');
+    }
+  } catch (e) {}
+};
 MERGERS.mnx_arch = (a, b) => ({ d: byId((a || {}).d, (b || {}).d) });
-const isUnl = () => unlocked && Date.now() - unlocked < 300000;
+const isUnl = () => encV2() ? !!DEK : !!(unlocked && Date.now() - unlocked < 300000);
 /* --- geometria: omografia e correzione di prospettiva --- */
 function homog(s, t) {
   const A = [], b = [];
@@ -1494,20 +1546,26 @@ function scanMeta() {
 async function scanSave() {
   if (!TOK || !uidTok()) return say('Per salvare serve essere collegati con il login.');
   const g = id => ($(id) || {}).value || '', meta = { t: g('sm-t').trim() || 'Documento', tp: g('sm-tp'), dt: g('sm-d'), kw: g('sm-k').trim(), note: g('sm-n').trim(), ris: $('sm-r').checked, lk: g('sm-lk') ? { k: g('sm-lk'), v: g('sm-lv') } : null };
+  if (meta.ris && encV2() && !DEK) return say('Per salvare un documento riservato sblocca prima il PIN (Archivio, Sblocca riservati).');
   const ov = $('scn'); ov.innerHTML = '<p class="hint" style="padding:24px">Elaboro le pagine…</p>'; const pgs = []; let th = '';
   for (let i = 0; i < SC.pages.length; i++) {
     const p = SC.pages[i]; await new Promise(r => setTimeout(r, 20)); const c = filtra(warp(p.src, p.q, 1800), p.mode), blob = await new Promise(ok => c.toBlob(ok, 'image/jpeg', p.mode === 'doc' ? 0.7 : 0.78));
     pgs.push({ jpeg: new Uint8Array(await blob.arrayBuffer()), w: c.width, h: c.height });
     if (i === 0) { const t = document.createElement('canvas'); t.width = 180; t.height = Math.round(180 * c.height / c.width); t.getContext('2d').drawImage(c, 0, 0, t.width, t.height); th = t.toDataURL('image/jpeg', 0.5); }
   }
-  const id = uid(), path = `${uidTok()}/doc/${id}.pdf`; await idbDo('readwrite', s => s.put({ path, blob: makePdf(pgs) }));
-  loadAR(); AR.d.push({ id, ...meta, pg: pgs.length, th, pdf: path, u: nowI() }); saveAR(); ov.remove(); SC = null; if ($('ar-l')) arList(); say('Documento salvato.'); flushUp();
+  const id = uid(), enc = !!(meta.ris && encV2()), path = `${uidTok()}/doc/${id}.${enc ? 'enc' : 'pdf'}`, pdfB = makePdf(pgs), fileB = enc ? new Blob([await aesEnc(DEK, new Uint8Array(await pdfB.arrayBuffer()))], { type: 'application/octet-stream' }) : pdfB;
+  await idbDo('readwrite', s => s.put({ path, blob: fileB }));
+  loadAR(); AR.d.push({ id, ...meta, pg: pgs.length, th, pdf: path, enc, mt: 'application/pdf', u: nowI() }); saveAR(); ov.remove(); SC = null; if ($('ar-l')) arList(); say('Documento salvato.'); flushUp();
 }
 /* --- archivio --- */
-async function arBlob(d) { let b = null; try { const q = await idbDo('readonly', s => s.get(d.pdf)); b = q && q.blob; } catch (e) {} return b || await (await stFetch('GET', 'authenticated/' + BUCKET + '/' + d.pdf)).blob(); }
+async function arBlob(d) {
+  let b = null; try { const q = await idbDo('readonly', s => s.get(d.pdf)); b = q && q.blob; } catch (e) {} b = b || await (await stFetch('GET', 'authenticated/' + BUCKET + '/' + d.pdf)).blob();
+  if (d.enc) { if (!DEK) throw new Error('bloccato'); return new Blob([await aesDec(DEK, new Uint8Array(await b.arrayBuffer()))], { type: d.mt || 'application/pdf' }); }
+  return b;
+}
 async function arOpen(d, dl) {
   try {
-    const b = await arBlob(d), pdf = d.pdf.endsWith('.pdf'), u = URL.createObjectURL(new Blob([b], { type: pdf ? 'application/pdf' : (b.type || 'image/jpeg') })), a = document.createElement('a');
+    const b = await arBlob(d), pdf = (d.mt || '').includes('pdf') || d.pdf.endsWith('.pdf'), u = URL.createObjectURL(new Blob([b], { type: pdf ? 'application/pdf' : (b.type || 'image/jpeg') })), a = document.createElement('a');
     a.href = u; if (dl) a.download = (d.t || 'documento') + (pdf ? '.pdf' : '.jpg'); else a.target = '_blank'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000);
   } catch (e) { say('Non riesco a scaricare il documento: sei offline, oppure la cartella su Supabase non è configurata.'); }
 }
@@ -1515,7 +1573,7 @@ function arList() {
   const q = aq.toLowerCase(), ok = d => (!at || d.tp === at) && (!q || [d.t, d.tp, d.kw, d.note].join(' ').toLowerCase().includes(q));
   const docs = L2(AR.d).filter(d => d.ris && !isUnl() ? true : ok(d)).filter(d => !(d.ris && !isUnl()) || (!q && !at)).sort((a, b) => (b.dt || '').localeCompare(a.dt || ''));
   const lk = d => !d.lk || !d.lk.k ? '' : d.lk.k === 'mese' ? `<span class="chip">Cedolino ${esc(d.lk.v)}</span>` : d.lk.k === 'pr' ? '<span class="chip">Pratica</span>' : `<span class="chip">${esc(((L2(MZ.v).find(m => m.id === d.lk.v)) || {}).nome || 'Mezzo')}</span>`;
-  $('ar-l').innerHTML = docs.map(d => d.ris && !isUnl() ? '<div class="card"><b>Documento riservato</b> <small>Sblocca con il PIN per vederlo.</small></div>' : `<details class="card pd"${openA === d.id ? ' open' : ''}><summary>${d.th ? `<img class="th" src="${d.th}" alt="">` : '<span class="th ph">PDF</span>'}<span><b>${esc(d.t || 'Documento')}</b><br><small>${esc([d.tp, dmy(d.dt), d.pg > 1 ? d.pg + ' pagine' : ''].filter(Boolean).join(', '))}</small></span>${lk(d)}${d.ris ? '<span class="chip c-n">Riservato</span>' : ''}</summary>
+  $('ar-l').innerHTML = (encV2() && !DEK ? '<div class="card"><small>I documenti riservati sono cifrati: premi «Sblocca riservati» e inserisci il PIN per vederli.</small></div>' : '') + docs.map(d => d.ris && !isUnl() ? '<div class="card"><b>Documento riservato</b> <small>Sblocca con il PIN per vederlo.</small></div>' : `<details class="card pd"${openA === d.id ? ' open' : ''}><summary>${d.th ? `<img class="th" src="${d.th}" alt="">` : '<span class="th ph">PDF</span>'}<span><b>${esc(d.t || 'Documento')}</b><br><small>${esc([d.tp, dmy(d.dt), d.pg > 1 ? d.pg + ' pagine' : ''].filter(Boolean).join(', '))}</small></span>${lk(d)}${d.ris ? '<span class="chip c-n">Riservato</span>' : ''}</summary>
     <div class="ob"><button class="btn" data-act="aopen" data-a="${d.id}">Apri</button><button class="btn ghost" data-act="adl" data-a="${d.id}">Scarica</button><button class="btn ghost" data-act="adel" data-a="${d.id}">Elimina</button></div>
     <div class="sg"><label>Titolo<input type="text" data-a="${d.id}" data-f="t" value="${esc(d.t)}"></label><label>Tipo<select data-a="${d.id}" data-f="tp"><option value=""></option>${DTIPI.map(t => `<option${t === d.tp ? ' selected' : ''}>${t}</option>`).join('')}</select></label><label>Data<input type="date" data-a="${d.id}" data-f="dt" value="${esc(d.dt)}"></label><label>Parole chiave<input type="text" data-a="${d.id}" data-f="kw" value="${esc(d.kw)}"></label></div>
     <label>Note<textarea data-a="${d.id}" data-f="note">${esc(d.note)}</textarea></label>
@@ -1535,6 +1593,11 @@ function renderArch() {
     if (el.id === 'ar-up') { const f = el.files[0]; el.value = ''; return f && arUpload(f); }
     const doc = d.a && AR.d.find(x => x.id === d.a); if (!doc || !d.f) return; unlocked = isUnl() ? Date.now() : unlocked;
     const val = el.type === 'checkbox' ? el.checked : el.value;
+    if (d.f === 'ris' && encV2()) {
+      if (!DEK) { el.checked = !val; return say('Sblocca prima il PIN per cambiare la protezione del documento.'); }
+      say(val ? 'Cifro il documento…' : 'Decifro il documento…');
+      try { await arConvert(doc, val); } catch (x) { el.checked = !val; return say('Non sono riuscito a convertire il documento: ' + (x.message || x)); }
+    }
     if (d.f === 'lkk') doc.lk = val ? { k: val, v: '' } : null; else if (d.f === 'lkv') doc.lk = { ...(doc.lk || {}), v: val }; else doc[d.f] = val;
     doc.u = nowI(); saveAR(); openA = doc.id; arList();
     if (d.f === 'ris' && val && !isUnl()) say('Documento riservato: lo rivedi dopo aver inserito il PIN.');
@@ -1551,9 +1614,158 @@ async function arUpload(f) {
   if (!TOK || !uidTok()) return say('Per caricare serve essere collegati con il login.'); if (f.size > 12e6) return say('Il file è troppo grande (massimo 12 MB).');
   const pdf = f.type === 'application/pdf', id = uid(), path = `${uidTok()}/doc/${id}.${pdf ? 'pdf' : 'jpg'}`; let blob = f, th = '';
   if (!pdf) { try { blob = await shrink(f); const c = await bmpCanvas(f, 180); th = c.toDataURL('image/jpeg', 0.5); } catch (e) { return say('Non riesco a leggere questa immagine.'); } }
-  await idbDo('readwrite', s => s.put({ path, blob })); loadAR(); AR.d.push({ id, t: f.name.replace(/\.[^.]+$/, ''), tp: '', dt: ymd(new Date()), kw: '', note: '', ris: false, lk: null, pg: 1, th, pdf: path, u: nowI() }); saveAR(); openA = id; renderArch(); say('File caricato.'); flushUp();
+  await idbDo('readwrite', s => s.put({ path, blob })); loadAR(); AR.d.push({ id, t: f.name.replace(/\.[^.]+$/, ''), tp: '', dt: ymd(new Date()), kw: '', note: '', ris: false, lk: null, pg: 1, th, pdf: path, mt: pdf ? 'application/pdf' : 'image/jpeg', u: nowI() }); saveAR(); openA = id; renderArch(); say('File caricato.'); flushUp();
 }
 function initArch() { renderArch(); }
+
+/* ---------- Cifratura dei dati sensibili (AES-GCM, chiave protetta dal PIN) ---------- */
+const SECK = ['mnx_salute', 'mnx_sind', 'mnx_riserv'];
+let DEK = null; const CACHE = {};
+const te = new TextEncoder(), td8 = new TextDecoder();
+const u8cat = (a, b) => { const o = new Uint8Array(a.length + b.length); o.set(a); o.set(b, a.length); return o; };
+const b64e = u => { let s = ''; for (let i = 0; i < u.length; i += 8192) s += String.fromCharCode(...u.subarray(i, i + 8192)); return btoa(s); };
+const b64d = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
+const hexE = u => [...u].map(b => b.toString(16).padStart(2, '0')).join(''), hexD = h => Uint8Array.from(h.match(/../g), x => parseInt(x, 16));
+function encV2() { try { const p = JSON.parse(localStorage.getItem(PINK) || '{}'); return p.v === 2 ? p : null; } catch (e) { return null; } }
+const isEnv = v => !!v && typeof v === 'object' && v.e === 1 && typeof v.d === 'string';
+async function kdf(pin, salt, it) {
+  const km = await crypto.subtle.importKey('raw', te.encode(pin), 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations: it }, km, { name: 'AES-GCM', length: 256 }, false, ['encrypt', 'decrypt']);
+}
+async function aesEnc(key, data) { const iv = crypto.getRandomValues(new Uint8Array(12)); return u8cat(iv, new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data))); }
+async function aesDec(key, buf) { return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: buf.slice(0, 12) }, key, buf.slice(12))); }
+const dekImport = raw => crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
+async function wrapDek(pin) { const salt = crypto.getRandomValues(new Uint8Array(16)), it = 600000, kek = await kdf(pin, salt, it), raw = new Uint8Array(await crypto.subtle.exportKey('raw', DEK)); return { v: 2, s: b64e(salt), it, w: b64e(await aesEnc(kek, raw)) }; }
+async function unwrapDek(p, pin) { const kek = await kdf(pin, b64d(p.s), p.it); return dekImport(await aesDec(kek, b64d(p.w))); }
+const seal = async obj => ({ e: 1, d: b64e(await aesEnc(DEK, te.encode(JSON.stringify(obj)))) });
+const openEnv = async env => JSON.parse(td8.decode(await aesDec(DEK, b64d(env.d))));
+const recCode = raw => hexE(raw).match(/.{8}/g).join('-');
+/* --- archivio dei dati sensibili: in chiaro se la cifratura è spenta, cifrati se è accesa --- */
+function secGet(k) { if (encV2()) return (DEK && CACHE[k]) ? CACHE[k] : {}; try { return JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { return {}; } }
+let secChain = Promise.resolve();
+function secPersist(k) { secChain = secChain.then(async () => { try { localStorage.setItem(k, JSON.stringify(await seal(CACHE[k]))); touch(k); } catch (e) {} }); }
+function secSet(k, obj) {
+  if (!encV2()) { try { localStorage.setItem(k, JSON.stringify(obj)); touch(k); } catch (e) {} agFlush(k); return; }
+  if (!DEK) return; CACHE[k] = obj; secPersist(k); agFlush(k);
+}
+/* --- indice delle scadenze (solo date, senza nomi) per agenda e dashboard anche a sezione bloccata --- */
+function agFlush(k) {
+  if (k !== SANK && k !== SIND) return;
+  let ag = {}; try { ag = JSON.parse(localStorage.getItem('mnx_ag') || '{}') || {}; } catch (e) {}
+  const t = nowI(), s = secGet(k);
+  if (k === SANK) { const out = []; L2(s.p).forEach(p => { L2(p.vi).filter(x => x.d && x.st !== 'Eseguita' && x.st !== 'Annullata').forEach(x => out.push({ d: x.d, k: 'appuntamento' })); L2(p.cu).filter(x => x.ric && x.att !== false).forEach(x => out.push({ d: x.ric, k: 'promemoria' })); L2(p.va).filter(x => x.ric).forEach(x => out.push({ d: x.ric, k: 'promemoria' })); }); ag.sal = out; ag.us = t; }
+  else { ag.sin = L2(s.pr).filter(p => p.scad && p.stato !== 'Chiusa').map(p => ({ d: p.scad })); ag.un = t; }
+  try { localStorage.setItem('mnx_ag', JSON.stringify(ag)); touch('mnx_ag'); } catch (e) {}
+}
+function agGet() {
+  if (!localStorage.getItem('mnx_ag') && !encV2()) { agFlush(SANK); agFlush(SIND); }
+  try { return JSON.parse(localStorage.getItem('mnx_ag') || '{}') || {}; } catch (e) { return {}; }
+}
+MERGERS.mnx_ag = (a, b) => { a = a || {}; b = b || {}; const sa = (a.us || '') >= (b.us || ''), sb = (a.un || '') >= (b.un || ''); return { sal: (sa ? a : b).sal, us: sa ? a.us : b.us, sin: (sb ? a : b).sin, un: sb ? a.un : b.un }; };
+MERGERS.mnx_riserv = (a, b) => ({ d: byId((a || {}).d, (b || {}).d) });
+/* --- sblocco e migrazione --- */
+async function decryptAll() {
+  for (const k of SECK) {
+    try {
+      const raw = localStorage.getItem(k); let loc = null; try { loc = raw === null ? null : JSON.parse(raw); } catch (e) {}
+      let pend = null; try { pend = JSON.parse(localStorage.getItem('mnx_pend_' + k) || 'null'); } catch (e) {}
+      let cur = loc === null ? null : isEnv(loc) ? await openEnv(loc) : loc;
+      if (isEnv(pend)) { const rp = await openEnv(pend); cur = cur ? MERGERS[k](cur, rp) : rp; localStorage.removeItem('mnx_pend_' + k); }
+      if (cur === null) continue;
+      CACHE[k] = cur; if (!isEnv(loc) || pend) { localStorage.setItem(k, JSON.stringify(await seal(cur))); touch(k); }
+    } catch (e) { say('Non riesco a leggere alcuni dati cifrati (' + k.replace('mnx_', '') + '): controlla di aver inserito il PIN giusto.'); }
+  }
+  agFlush(SANK); agFlush(SIND);
+}
+function lockCrypto() { DEK = null; Object.keys(CACHE).forEach(k => delete CACHE[k]); unlocked = 0; }
+async function encActivate(pin) {
+  const pobj = await wrapDek(pin); localStorage.setItem(PINK, JSON.stringify(pobj)); touch(PINK);
+  await decryptAll(); loadAR(); let n = 0;
+  for (const d of AR.d.filter(x => x.ris && !x.enc && !x.del)) { try { await arConvert(d, true); n++; } catch (e) {} }
+  saveAR(); agFlush(SANK); agFlush(SIND); unlocked = Date.now(); flushUp(); push(); return n;
+}
+async function arConvert(d, toEnc) {
+  if (!DEK) throw new Error('bloccato'); const blob = await arBlob(d), old = d.pdf, mt = d.mt || blob.type || 'application/pdf';
+  const np = `${uidTok()}/doc/${d.id}-${Date.now().toString(36)}.${toEnc ? 'enc' : (mt.includes('pdf') ? 'pdf' : 'jpg')}`;
+  const out = toEnc ? new Blob([await aesEnc(DEK, new Uint8Array(await blob.arrayBuffer()))], { type: 'application/octet-stream' }) : new Blob([blob], { type: mt });
+  await idbDo('readwrite', s => s.put({ path: np, blob: out }));
+  d.pdf = np; d.enc = toEnc; d.mt = mt; d.u = nowI();
+  try { await idbDo('readwrite', s => s.delete(old)); } catch (e) {}
+  let dq = []; try { dq = JSON.parse(localStorage.getItem('mnx_delq') || '[]'); } catch (e) {} dq.push(old); localStorage.setItem('mnx_delq', JSON.stringify(dq));
+}
+/* --- finestre: attivazione, cambio PIN, codice di recupero --- */
+function ovForm(html) { const ov = document.createElement('div'); ov.className = 'scn'; ov.id = 'encov'; ov.innerHTML = html; document.body.appendChild(ov); return ov; }
+const QV = (ov, s) => ov.querySelector(s);
+function codeBlock(ov, code) {
+  return `<div class="card code">${code}</div><div class="scn-b"><button class="btn ghost" type="button" id="cd-cp">Copia</button><button class="btn ghost" type="button" id="cd-dl">Scarica come file di testo</button></div>`;
+}
+function bindCode(ov, code) {
+  QV(ov, '#cd-cp').onclick = async () => { try { await navigator.clipboard.writeText(code); say('Codice copiato.'); } catch (e) { say('Non riesco a copiarlo: selezionalo e copialo a mano.'); } };
+  QV(ov, '#cd-dl').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([`Mnemonyx - codice di recupero della cifratura\nGenerato il ${new Date().toLocaleDateString('it-IT')}\n\n${code}\n\nConservalo in un posto sicuro, lontano dal telefono e dal computer.\nChi ha questo codice può leggere i tuoi dati cifrati. Senza PIN e senza questo codice i dati non si recuperano.\n`], { type: 'text/plain' })); a.download = 'Mnemonyx-codice-di-recupero.txt'; document.body.appendChild(a); a.click(); a.remove(); };
+}
+async function encWizard() {
+  if (!(window.crypto && crypto.subtle)) return say('Questo browser non permette la cifratura (serve una connessione sicura HTTPS).');
+  if (!TOK) return say('Per attivare la cifratura devi essere collegato con il login.');
+  if (encV2()) return say('La cifratura è già attiva.');
+  const ov = ovForm(`<div class="scn-h"><b>Attiva la cifratura</b><button class="btn ghost" id="enc-x">Annulla</button></div><div class="sw">
+    <p>Salute, Sindacato e i documenti riservati verranno cifrati <b>sul tuo dispositivo</b> prima di andare su Supabase: nemmeno chi gestisce il servizio potrà leggerli.</p>
+    <p class="warn">Se perdi il PIN <b>e</b> il codice di recupero, quei dati non si recuperano più: nessuno può farlo.</p>
+    <p>Per proteggere davvero i dati il PIN di cifratura deve essere <b>lungo</b>: almeno 8 caratteri, meglio una frase. Un PIN di 4 cifre si indovina in pochi minuti. Sostituirà il PIN attuale delle sezioni riservate.</p>
+    <p>Prima di continuare apri Mnemonyx <b>sugli altri tuoi dispositivi</b> (basta una volta, con la rete) così hanno anche loro questa versione.</p>
+    <form id="enc-f"><label>Nuovo PIN (almeno 8 caratteri)<input type="password" id="enc-p1" autocomplete="new-password"></label><label>Ripeti il PIN<input type="password" id="enc-p2" autocomplete="new-password"></label>
+    <label class="chk"><input type="checkbox" id="enc-ok"> Ho capito che senza PIN e codice di recupero i dati non si recuperano.</label>
+    <label class="chk"><input type="checkbox" id="enc-bk"> Ho un backup recente (Impostazioni, Esporta backup) oppure accetto il rischio.</label>
+    <div class="scn-b"><button class="btn" type="submit">Continua</button></div></form><p class="warn" id="enc-e"></p></div>`);
+  QV(ov, '#enc-x').onclick = () => ov.remove();
+  QV(ov, '#enc-f').onsubmit = async e => {
+    e.preventDefault(); const er = t => { QV(ov, '#enc-e').textContent = t; }, p1 = QV(ov, '#enc-p1').value;
+    if (p1.length < 8) return er('Il PIN deve avere almeno 8 caratteri.'); if (p1 !== QV(ov, '#enc-p2').value) return er('I due PIN non coincidono.');
+    if (!QV(ov, '#enc-ok').checked || !QV(ov, '#enc-bk').checked) return er('Spunta le due conferme per continuare.');
+    er('Preparo la chiave…'); const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']), code = recCode(new Uint8Array(await crypto.subtle.exportKey('raw', key)));
+    ov.innerHTML = `<div class="scn-h"><b>Codice di recupero</b></div><div class="sw"><p>Questo è il tuo <b>codice di recupero</b>. Se dimentichi il PIN, è l'unico modo per riaprire i dati. Scrivilo su carta o salvalo in un posto sicuro, <b>non</b> solo nel telefono.</p>${codeBlock(ov, code)}
+      <label class="chk"><input type="checkbox" id="enc-sv"> Ho salvato il codice in un posto sicuro.</label><div class="scn-b"><button class="btn" id="enc-go" disabled>Attiva ora la cifratura</button></div><p class="hint" id="enc-st"></p></div>`;
+    bindCode(ov, code); QV(ov, '#enc-sv').onchange = () => { QV(ov, '#enc-go').disabled = !QV(ov, '#enc-sv').checked; };
+    QV(ov, '#enc-go').onclick = async () => {
+      QV(ov, '#enc-go').disabled = true; const st = t => { QV(ov, '#enc-st').textContent = t; };
+      try { st('Scarico gli ultimi dati…'); await pull(); st('Cifro i dati…'); DEK = key; const n = await encActivate(p1);
+        ov.innerHTML = `<div class="scn-h"><b>Cifratura attiva</b></div><div class="sw"><p>Fatto. Salute, Sindacato${n ? ` e ${n} documenti riservati` : ' e i documenti riservati'} sono ora cifrati. Gli altri dispositivi chiederanno il PIN la prima volta che apri queste sezioni.</p><div class="scn-b"><button class="btn" id="enc-fine">Chiudi</button></div></div>`; QV(ov, '#enc-fine').onclick = () => { ov.remove(); go('imp'); };
+      } catch (x) { DEK = null; st('Qualcosa è andato storto: ' + (x.message || x) + '. Nessun dato è stato perso; riprova.'); }
+    };
+  };
+}
+function encChange() {
+  const p = encV2(); if (!p) return;
+  const ov = ovForm(`<div class="scn-h"><b>Cambia il PIN di cifratura</b><button class="btn ghost" id="enc-x">Annulla</button></div><div class="sw"><form id="enc-f"><label>PIN attuale<input type="password" id="enc-p0" autocomplete="off"></label><label>Nuovo PIN (almeno 8 caratteri)<input type="password" id="enc-p1" autocomplete="new-password"></label><label>Ripeti il nuovo PIN<input type="password" id="enc-p2" autocomplete="new-password"></label><div class="scn-b"><button class="btn" type="submit">Cambia PIN</button></div></form><p class="warn" id="enc-e"></p></div>`);
+  QV(ov, '#enc-x').onclick = () => ov.remove();
+  QV(ov, '#enc-f').onsubmit = async e => {
+    e.preventDefault(); const er = t => { QV(ov, '#enc-e').textContent = t; }, n1 = QV(ov, '#enc-p1').value;
+    if (n1.length < 8) return er('Il nuovo PIN deve avere almeno 8 caratteri.'); if (n1 !== QV(ov, '#enc-p2').value) return er('I due nuovi PIN non coincidono.');
+    er('Controllo…'); try { DEK = await unwrapDek(p, QV(ov, '#enc-p0').value); } catch (x) { return er('PIN attuale errato.'); }
+    localStorage.setItem(PINK, JSON.stringify(await wrapDek(n1))); touch(PINK); await decryptAll(); ov.remove(); say('PIN di cifratura cambiato.');
+  };
+}
+function encShowCode() {
+  const p = encV2(); if (!p) return;
+  const ov = ovForm(`<div class="scn-h"><b>Codice di recupero</b><button class="btn ghost" id="enc-x">Chiudi</button></div><div class="sw"><form id="enc-f"><label>Inserisci il PIN per vederlo<input type="password" id="enc-p0" autocomplete="off"></label><div class="scn-b"><button class="btn" type="submit">Mostra</button></div></form><p class="warn" id="enc-e"></p><div id="enc-c"></div></div>`);
+  QV(ov, '#enc-x').onclick = () => ov.remove();
+  QV(ov, '#enc-f').onsubmit = async e => {
+    e.preventDefault(); try { const k = await unwrapDek(p, QV(ov, '#enc-p0').value), code = recCode(new Uint8Array(await crypto.subtle.exportKey('raw', k))); QV(ov, '#enc-e').textContent = ''; QV(ov, '#enc-c').innerHTML = codeBlock(ov, code); bindCode(ov, code); } catch (x) { QV(ov, '#enc-e').textContent = 'PIN errato.'; }
+  };
+}
+function encRecover(next) {
+  const ov = ovForm(`<div class="scn-h"><b>Ho dimenticato il PIN</b><button class="btn ghost" id="enc-x">Annulla</button></div><div class="sw"><p>Inserisci il codice di recupero e scegli un nuovo PIN.</p><form id="enc-f"><label>Codice di recupero<input type="text" id="enc-c" autocomplete="off" spellcheck="false"></label><label>Nuovo PIN (almeno 8 caratteri)<input type="password" id="enc-p1" autocomplete="new-password"></label><label>Ripeti il nuovo PIN<input type="password" id="enc-p2" autocomplete="new-password"></label><div class="scn-b"><button class="btn" type="submit">Ripristina l'accesso</button></div></form><p class="warn" id="enc-e"></p></div>`);
+  QV(ov, '#enc-x').onclick = () => ov.remove();
+  QV(ov, '#enc-f').onsubmit = async e => {
+    e.preventDefault(); const er = t => { QV(ov, '#enc-e').textContent = t; }, h = QV(ov, '#enc-c').value.replace(/[^0-9a-fA-F]/g, ''), n1 = QV(ov, '#enc-p1').value;
+    if (h.length !== 64) return er('Il codice non è completo: deve avere 64 caratteri (cifre e lettere A-F).'); if (n1.length < 8) return er('Il nuovo PIN deve avere almeno 8 caratteri.'); if (n1 !== QV(ov, '#enc-p2').value) return er('I due PIN non coincidono.');
+    er('Controllo…'); try {
+      const k = await dekImport(hexD(h)); let tested = false;
+      for (const s of SECK) { let v = null; try { v = JSON.parse(localStorage.getItem(s) || 'null'); } catch (x) {} if (isEnv(v)) { await aesDec(k, b64d(v.d)); tested = true; break; } }
+      if (!tested) throw new Error('nessun dato da verificare');
+      DEK = k; localStorage.setItem(PINK, JSON.stringify(await wrapDek(n1))); touch(PINK); await decryptAll(); unlocked = Date.now(); ov.remove(); say('Accesso ripristinato.'); next();
+    } catch (x) { DEK = null; er('Il codice non è corretto.'); }
+  };
+}
 
 /* ---------- Voce ---------- */
 let tT;
