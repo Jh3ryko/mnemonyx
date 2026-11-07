@@ -3,8 +3,8 @@
 <head>
 <!--
   Mnemonyx - Kymera Software Studio - All rights reserved
-  Versione 0.18.0 (3/11/2026)
-  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico | 0.16.0 foto degli scontrini allegate alle spese | 0.16.1 pulsante diretto Scatta foto | 0.17.0 scanner documenti e archivio con PDF, ricerca e collegamenti | 0.18.0 cifratura dei dati sensibili con il PIN
+  Versione 0.18.1 (4/11/2026)
+  Cronologia: 0.1.0 scheletro (login, tema, menu, voce) | 0.2.0 nuovo logo e anteprima | 0.3.0 dashboard con orologio, striscia e agenda, impostazioni | 0.4.0 sezione Sindacato nel menu Work | 0.5.0 modulo Ore lavorate (ordinarie, straordinari, ROL, causali) | 0.6.0 retribuzione stimata e confronto con il cedolino | 0.6.1 etichette più chiare su lordo e imponibile | 0.6.2 avviso sul netto reso neutro | 0.7.0 report mensile con semaforo, anomalie e stampa | 0.7.1 correzioni ai dati di esempio | 0.8.0 backup e ripristino dei dati | 0.9.0 login Supabase e sincronizzazione tra dispositivi | 0.9.1 versione pubblicabile, senza dati personali nel codice | 0.10.0 installazione come app (PWA) e apertura senza rete | 0.11.0 sezione Sindacato con PIN, pratiche, diario e dossier | 0.12.0 sezione Spese con budget, ricorrenti, grafico, CSV e voce | 0.13.0 bollette e rate con gestore e confronto mensile; PIN Sindacato più robusto | 0.13.1 PIN con calcolo alternativo e messaggi di stato | 0.14.0 sezione Mezzi con scadenze, rifornimenti, manutenzioni e costi | 0.15.0 sezione Salute con PIN: anamnesi, cure, visite, esami, vaccini, spese detraibili e scheda per il medico | 0.16.0 foto degli scontrini allegate alle spese | 0.16.1 pulsante diretto Scatta foto | 0.17.0 scanner documenti e archivio con PDF, ricerca e collegamenti | 0.18.0 cifratura dei dati sensibili con il PIN | 0.18.1 messaggi più chiari su dove si trovano le foto degli scontrini
   Ricorda: aggiornare VERSION nello script a ogni modifica.
 -->
 <meta charset="utf-8">
@@ -297,7 +297,7 @@ const IDLE_MIN = 15;                // blocco automatico dopo X minuti di inatti
 const PREVIEW = false;              // true: mostra "Anteprima senza accesso". Metti false quando usi dati veri.
 
 
-const VERSION = '0.18.0', COPY = 'Kymera Software Studio - All rights reserved';
+const VERSION = '0.18.1', COPY = 'Kymera Software Studio - All rights reserved';
 document.querySelectorAll('[data-cr]').forEach(e => e.innerHTML = `${COPY}<br>Mnemonyx versione ${VERSION}`);
 const LOGO = `<svg viewBox="0 0 96 100" width="96" height="100" aria-hidden="true">
 <defs>
@@ -1365,7 +1365,7 @@ async function addFoto(files, id) {
     try { const blob = await shrink(f), path = `${uidTok()}/sp/${id}-${Date.now().toString(36)}${n++}.jpg`; await idbDo('readwrite', s => s.put({ path, blob })); m.ft.push(path); }
     catch (e) { say('Non riesco a leggere questa immagine.'); }
   }
-  m.u = nowI(); saveSP(); if ($('spr')) spRows(); say(n > 1 ? `${n} foto allegate.` : 'Foto allegata.'); flushUp();
+  m.u = nowI(); saveSP(); if ($('spr')) spRows(); say((n > 1 ? `${n} foto allegate` : 'Foto allegata') + ' alla spesa. La trovi in Spese, sulla riga della spesa, con «Vedi foto».'); flushUp();
 }
 async function fotoUrl(p) {
   if (FURL.has(p)) return FURL.get(p);
@@ -1578,7 +1578,7 @@ function arList() {
     <div class="sg"><label>Titolo<input type="text" data-a="${d.id}" data-f="t" value="${esc(d.t)}"></label><label>Tipo<select data-a="${d.id}" data-f="tp"><option value=""></option>${DTIPI.map(t => `<option${t === d.tp ? ' selected' : ''}>${t}</option>`).join('')}</select></label><label>Data<input type="date" data-a="${d.id}" data-f="dt" value="${esc(d.dt)}"></label><label>Parole chiave<input type="text" data-a="${d.id}" data-f="kw" value="${esc(d.kw)}"></label></div>
     <label>Note<textarea data-a="${d.id}" data-f="note">${esc(d.note)}</textarea></label>
     <div class="sg"><label>Collega a<select data-a="${d.id}" data-f="lkk"><option value=""></option><option value="mese"${(d.lk || {}).k === 'mese' ? ' selected' : ''}>Mese di lavoro (cedolino)</option><option value="pr"${(d.lk || {}).k === 'pr' ? ' selected' : ''}>Pratica sindacale</option><option value="mz"${(d.lk || {}).k === 'mz' ? ' selected' : ''}>Mezzo</option></select></label><label>${(d.lk || {}).k ? 'Quale' : ''}${lkCtl((d.lk || {}).k, (d.lk || {}).v, `data-a="${d.id}" data-f="lkv"`)}</label></div>
-    <label class="chk"><input type="checkbox" data-a="${d.id}" data-f="ris"${d.ris ? ' checked' : ''}> Riservato (si vede solo dopo il PIN)</label></details>`).join('') || '<p class="hint">Nessun documento. Scansiona il primo con la fotocamera.</p>';
+    <label class="chk"><input type="checkbox" data-a="${d.id}" data-f="ris"${d.ris ? ' checked' : ''}> Riservato (si vede solo dopo il PIN)</label></details>`).join('') || '<p class="hint">Nessun documento. Scansiona il primo con la fotocamera. Qui trovi i documenti scansionati o caricati: le foto degli scontrini restano nella riga della spesa, in Spese.</p>';
 }
 function renderArch() {
   loadAR(); loadSD(); loadMZ();
